@@ -45,6 +45,7 @@ Plugin de masterização "de um knob" no estilo Soundgoodizer, com assistente qu
 - Cada um no seu PC, com seu Claude Code, no mesmo repo
 - Org GitHub **Cremoland** gratuita, os dois como donos, repo privado
 - Ninguém commita direto na `main`: branch curta → PR → CI verde → merge (sem aprovação obrigatória, Claude revisa)
+- GitHub Free não protege branch em repo privado. Decidido (29/09): garantir por combinado + `.claude/settings.json` (Claudes bloqueados de push na main) + hook local `.githooks/pre-push`. Migrar pro GitHub Team se virar problema.
 - Divisão por feature (os dois mexem em tudo), compensada por:
   - toda tarefa vira Issue, e quem pega se atribui antes de começar
   - PRs pequenos (horas, não semanas)

@@ -10,6 +10,7 @@ Decisões do projeto: [docs/decisoes.md](docs/decisoes.md). Regras de colaboraç
 2. [CMake](https://cmake.org/download/) 3.22 ou mais novo e [Git](https://git-scm.com/)
 3. [GitHub CLI](https://cli.github.com/) e `gh auth login`
 4. `pip install clang-format==22.1.8`
+5. Depois de clonar, dentro da pasta do repo: `git config core.hooksPath .githooks` (bloqueia push direto na `main`)
 
 ## Compilar
 

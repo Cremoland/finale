@@ -47,7 +47,7 @@ Antes de commitar: `clang-format -i` nos arquivos alterados (versão 22.1.8, ins
 1. Toda tarefa tem uma Issue. Antes de começar, veja se alguém já está atribuído; se não, atribua-se (`gh issue edit <n> --add-assignee @me`).
 2. Crie uma branch a partir da `main` atualizada: `git fetch origin && git switch -c <tipo>/<n>-<descricao> origin/main` (tipo: `feat`, `fix`, `dsp`, `ui`, `ci`, `docs`).
 3. PRs pequenos: uma coisa por PR, idealmente horas de trabalho, não semanas.
-4. **Nunca** commite nem dê push direto na `main`. Nunca use `--force` e nunca reescreva o histórico de uma branch que o outro também usa.
+4. **Nunca** commite nem dê push direto na `main` (o GitHub não bloqueia isso no nosso plano; quem garante é esta regra, o `.claude/settings.json` e o hook em `.githooks/`. Se `git config core.hooksPath` não retornar `.githooks`, rode `git config core.hooksPath .githooks`). Nunca use `--force` e nunca reescreva o histórico de uma branch que o outro também usa.
 5. Antes de abrir o PR: `git fetch origin && git merge origin/main`, compile, rode os testes e o clang-format.
 6. Abra o PR com `gh pr create`, ligando a Issue (`Closes #n`) e preenchendo o template.
 7. Merge só com o CI verde (build, testes de DSP, pluginval e formatação). Não é preciso aprovação do outro, mas revise o próprio diff antes.

@@ -1,0 +1,10 @@
+#!/bin/sh
+# Bloqueia push direto na main (o GitHub Free não protege branch em repo privado).
+# Ative uma vez com: git config core.hooksPath .githooks
+while read local_ref local_sha remote_ref remote_sha; do
+    if [ "$remote_ref" = "refs/heads/main" ]; then
+        echo "Push direto na main bloqueado. Crie uma branch e abra um PR (veja CLAUDE.md)." >&2
+        exit 1
+    fi
+done
+exit 0
