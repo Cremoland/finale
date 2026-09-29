@@ -1,0 +1,17 @@
+# Formatação obrigatória (checada no CI). Versão fixada: clang-format 22.1.8
+# Instale com: pip install clang-format==22.1.8
+BasedOnStyle: WebKit
+ColumnLimit: 120
+IndentWidth: 4
+BreakBeforeBraces: Allman
+SpaceBeforeParens: NonEmptyParentheses
+SpaceBeforeCpp11BracedList: true
+AllowShortFunctionsOnASingleLine: Inline
+AllowShortLambdasOnASingleLine: All
+PointerAlignment: Left
+NamespaceIndentation: None
+FixNamespaceComments: true
+IncludeBlocks: Preserve
+SortIncludes: CaseSensitive
+BreakConstructorInitializers: AfterColon
+PackConstructorInitializers: Never

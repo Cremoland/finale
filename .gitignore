@@ -1,0 +1,15 @@
+build/
+out/
+.vs/
+.vscode/
+*.user
+CMakeUserPresets.json
+.claude/settings.local.json
+
+# Músicas de referência NUNCA vão pro repo (direitos autorais + tamanho)
+references/
+*.wav
+*.aif
+*.aiff
+*.flac
+*.mp3

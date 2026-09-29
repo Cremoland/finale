@@ -1,0 +1,56 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  format:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: pip install clang-format==22.1.8
+      - name: clang-format
+        run: clang-format --dry-run --Werror $(git ls-files 'Source/*.h' 'Source/*.cpp' 'tests/*.h' 'tests/*.cpp')
+
+  build:
+    runs-on: windows-2022
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Cache das dependências (JUCE, Catch2)
+        uses: actions/cache@v4
+        with:
+          path: build/_deps
+          key: deps-${{ runner.os }}-${{ hashFiles('CMakeLists.txt') }}
+
+      - name: Configurar
+        run: cmake -B build -G "Visual Studio 17 2022" -A x64
+
+      - name: Compilar
+        run: cmake --build build --config Release --parallel
+
+      - name: Testes de DSP
+        run: ctest --test-dir build -C Release --output-on-failure
+
+      - name: pluginval
+        shell: pwsh
+        run: |
+          Invoke-WebRequest https://github.com/Tracktion/pluginval/releases/download/v1.0.4/pluginval_Windows.zip -OutFile pluginval.zip
+          Expand-Archive pluginval.zip -DestinationPath pluginval
+          $vst3 = Get-ChildItem build/finale_plugin_artefacts/Release/VST3 -Filter *.vst3 | Select-Object -First 1
+          ./pluginval/pluginval.exe --strictness-level 10 --validate-in-process --timeout-ms 300000 --validate $vst3.FullName
+          if ($LASTEXITCODE -ne 0) { exit 1 }
+
+      - name: Publicar build pra testar na DAW
+        uses: actions/upload-artifact@v4
+        with:
+          name: finale-windows-${{ github.sha }}
+          path: |
+            build/finale_plugin_artefacts/Release/VST3
+            build/finale_plugin_artefacts/Release/Standalone/*.exe
