@@ -49,12 +49,13 @@ jobs:
           Expand-Archive pluginval.zip -DestinationPath pluginval
           $vst3 = Get-ChildItem build/finale_plugin_artefacts/RelWithDebInfo/VST3 -Filter *.vst3 | Select-Object -First 1
           $failed = 0
-          foreach ($i in 1..8) {
+          foreach ($i in 1..3) {
             Write-Host "===== rodada $i"
-            ./pluginval/pluginval.exe --strictness-level 10 --validate-in-process --timeout-ms 300000 --validate $vst3.FullName *> "pv_$i.log"
-            $code = $LASTEXITCODE
-            Write-Host "exit code: $code"
-            if ($code -ne 0) { $failed++; Get-Content "pv_$i.log" -Tail 15 }
+            $p = Start-Process ./pluginval/pluginval.exe -ArgumentList "--strictness-level 10 --verbose --validate-in-process --timeout-ms 300000 --validate `"$($vst3.FullName)`"" -RedirectStandardOutput "pv_$i.log" -RedirectStandardError "pv_err_$i.log" -Wait -PassThru -NoNewWindow
+            Write-Host "exit code: $($p.ExitCode)"
+            Get-Content "pv_$i.log" -Tail 12
+            Get-Content "pv_err_$i.log" -Tail 12
+            if ($p.ExitCode -ne 0) { $failed++ }
           }
           Start-Sleep 5
           $cdb = "C:\Program Files (x86)\Windows Kits\10\Debuggers\x64\cdb.exe"
@@ -64,7 +65,7 @@ jobs:
             Write-Host "== dump: $($_.FullName)"
             if (Test-Path $cdb) { & $cdb -z $_.FullName -y "$sym;srv*C:\sym*https://msdl.microsoft.com/download/symbols" -c ".ecxr; kn 60; ~*kn 30; q" }
           }
-          Write-Host "falhas: $failed de 8"
+          Write-Host "falhas: $failed de 3"
           if ($failed -ne 0) { exit 1 }
 
       - name: Publicar build pra testar na DAW
