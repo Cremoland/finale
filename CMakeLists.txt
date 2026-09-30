@@ -57,9 +57,8 @@ if(FINALE_BUILD_PLUGIN)
             juce::juce_audio_utils
             juce::juce_dsp
         PUBLIC
-            # Sem juce_recommended_lto_flags: com LTO no MSVC o pluginval crasha no teste
-            # "Editor Automation" no CI do Windows (sem LTO passa). Revisitar ao atualizar o JUCE.
             juce::juce_recommended_config_flags
+            juce::juce_recommended_lto_flags
             juce::juce_recommended_warning_flags)
 endif()
 
