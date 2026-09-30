@@ -33,24 +33,42 @@ jobs:
         run: cmake -B build -G "Visual Studio 17 2022" -A x64
 
       - name: Compilar
-        run: cmake --build build --config Release --parallel
+        run: cmake --build build --config RelWithDebInfo --parallel
 
       - name: Testes de DSP
-        run: ctest --test-dir build -C Release --output-on-failure
+        run: ctest --test-dir build -C RelWithDebInfo --output-on-failure
 
       - name: pluginval
         shell: pwsh
         run: |
+          # Diagnóstico temporário: grava dump se o pluginval crashar
+          New-Item -ItemType Directory -Force D:\dumps | Out-Null
+          reg add "HKLM\SOFTWARE\Microsoft\Windows\Windows Error Reporting\LocalDumps" /v DumpFolder /t REG_EXPAND_SZ /d D:\dumps /f
+          reg add "HKLM\SOFTWARE\Microsoft\Windows\Windows Error Reporting\LocalDumps" /v DumpType /t REG_DWORD /d 1 /f
           Invoke-WebRequest https://github.com/Tracktion/pluginval/releases/download/v1.0.4/pluginval_Windows.zip -OutFile pluginval.zip
           Expand-Archive pluginval.zip -DestinationPath pluginval
-          $vst3 = Get-ChildItem build/finale_plugin_artefacts/Release/VST3 -Filter *.vst3 | Select-Object -First 1
-          ./pluginval/pluginval.exe --strictness-level 10 --verbose --timeout-ms 300000 --validate $vst3.FullName
-          if ($LASTEXITCODE -ne 0) { exit 1 }
+          $vst3 = Get-ChildItem build/finale_plugin_artefacts/RelWithDebInfo/VST3 -Filter *.vst3 | Select-Object -First 1
+          ./pluginval/pluginval.exe --strictness-level 10 --verbose --validate-in-process --timeout-ms 300000 --validate $vst3.FullName
+          $code = $LASTEXITCODE
+          Write-Host "pluginval exit code: $code"
+          if ($code -ne 0) {
+            Start-Sleep 5
+            $cdb = Get-ChildItem "C:\Program Files (x86)\Windows Kits\10\Debuggers\x64\cdb.exe" -ErrorAction SilentlyContinue
+            Get-ChildItem D:\dumps | ForEach-Object {
+              Write-Host "== dump: $($_.FullName)"
+              if ($cdb) {
+                $sym = ((Get-ChildItem build -Recurse -Filter *.pdb | ForEach-Object DirectoryName | Sort-Object -Unique) -join ";")
+                & $cdb.FullName -z $_.FullName -y "$sym;srv*C:\sym*https://msdl.microsoft.com/download/symbols" -c ".ecxr; kn 60; q"
+              }
+            }
+            if (-not $cdb) { Write-Host "cdb nao encontrado" }
+            exit 1
+          }
 
       - name: Publicar build pra testar na DAW
         uses: actions/upload-artifact@v4
         with:
           name: finale-windows-${{ github.sha }}
           path: |
-            build/finale_plugin_artefacts/Release/VST3
-            build/finale_plugin_artefacts/Release/Standalone/*.exe
+            build/finale_plugin_artefacts/RelWithDebInfo/VST3
+            build/finale_plugin_artefacts/RelWithDebInfo/Standalone/*.exe
