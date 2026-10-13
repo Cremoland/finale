@@ -19,7 +19,7 @@ namespace
 {
 constexpr double sampleRate = 48000.0;
 constexpr double pi = 3.14159265358979323846;
-constexpr float ceilingLin = 0.8913f; // -1 dBTP
+constexpr float ceilingLin = 0.891251f; // -1 dBTP = 10^(-1/20)
 constexpr float measureTolerance = 1.001f; // 0.1% de tolerância de medição
 
 // Pico verdadeiro medido por um detector novo, considerando só os intervalos que
@@ -61,6 +61,29 @@ std::vector<float> sine (double frequency, float amplitude, std::size_t numSampl
     for (std::size_t n = 0; n < numSamples; ++n)
         out[n] = amplitude * static_cast<float> (std::sin (2.0 * pi * frequency * static_cast<double> (n) / fs));
     return out;
+}
+
+// Seno com fase inicial: com frequência fs/4 e fase pi/4, as amostras nunca caem no
+// pico, então o pico verdadeiro só aparece entre elas.
+std::vector<float> sineWithPhase (double frequency, double phase, float amplitude, std::size_t numSamples, double fs)
+{
+    std::vector<float> out (numSamples);
+    for (std::size_t n = 0; n < numSamples; ++n)
+        out[n]
+            = amplitude * static_cast<float> (std::sin (2.0 * pi * frequency * static_cast<double> (n) / fs + phase));
+    return out;
+}
+
+// Duas amostras seguidas exatamente no mesmo nível: assinatura de clipe duro, já que
+// um ganho suave não repete o mesmo |valor| em amostras vizinhas.
+bool hasFlatTopAt (const std::vector<float>& out, float level)
+{
+    for (std::size_t n = 1; n < out.size(); ++n)
+    {
+        if (std::abs (std::abs (out[n]) - level) < 1e-6f && std::abs (std::abs (out[n - 1]) - level) < 1e-6f)
+            return true;
+    }
+    return false;
 }
 
 // Ruído uniforme em [-2, 2] com semente fixa: o mesmo ruído em todo teste.
@@ -226,6 +249,111 @@ TEST_CASE ("teto abaixado no meio")
         REQUIRE (std::abs (out[n]) <= 0.5012f);
 
     REQUIRE (truePeakFrom (out, from) <= 0.5012f * measureTolerance);
+}
+
+TEST_CASE ("baixar o teto não gera clipe duro")
+{
+    constexpr std::size_t total = 24000; // 0.5 s
+    constexpr std::size_t switchAt = 12000; // 0.25 s
+
+    std::vector<std::vector<float>> channels (1, sine (997.0, 2.0f, total, sampleRate));
+
+    TruePeakLimiter limiter;
+    limiter.prepare (sampleRate, 1);
+    limiter.setCeilingDecibels (0.0f);
+
+    float* first[1] = { channels[0].data() };
+    limiter.process (first, 1, static_cast<int> (switchAt));
+
+    limiter.setCeilingDecibels (-6.0f);
+    float* second[1] = { channels[0].data() + switchAt };
+    limiter.process (second, 1, static_cast<int> (total - switchAt));
+
+    // As amostras que ainda estavam no lookahead quando o teto caiu não podem sair
+    // cortadas no teto novo: a saída inteira não pode ter platô em nenhum dos dois níveis.
+    const std::vector<float>& out = channels[0];
+    REQUIRE (!hasFlatTopAt (out, 0.501187f));
+    REQUIRE (!hasFlatTopAt (out, 1.0f));
+}
+
+TEST_CASE ("redução é por ganho, não por clamp")
+{
+    constexpr std::size_t total = 48000; // 1 s
+
+    TruePeakLimiter limiter;
+    limiter.prepare (sampleRate, 1);
+    limiter.setCeilingDecibels (-1.0f);
+
+    std::vector<std::vector<float>> channels (1, sine (997.0, 4.0f, total, sampleRate));
+    processInBlocks (limiter, channels, { 512 });
+
+    // Depois do transitório de 0.1 s, um limiter por ganho não deixa platô no teto:
+    // um hard clipper deixaria.
+    const std::vector<float>& out = channels[0];
+    const std::vector<float> settled (out.begin() + 4800, out.end());
+    REQUIRE (!hasFlatTopAt (settled, ceilingLin));
+}
+
+TEST_CASE ("amplitude da saída respeita o teto (medida independente)")
+{
+    constexpr std::size_t total = 48000; // 1 s
+    constexpr std::size_t from = 9600; // 0.2 s
+
+    const std::vector<std::vector<float>> signals = {
+        sine (997.0, 4.0f, total, sampleRate),
+        sine (5000.0, 4.0f, total, sampleRate),
+        sineWithPhase (sampleRate / 4.0, pi / 4.0, 4.0f, total, sampleRate),
+    };
+
+    for (const std::vector<float>& signal : signals)
+    {
+        TruePeakLimiter limiter;
+        limiter.prepare (sampleRate, 1);
+        limiter.setCeilingDecibels (-1.0f);
+
+        std::vector<std::vector<float>> channels (1, signal);
+        processInBlocks (limiter, channels, { 512 });
+
+        // Para um seno puro com ganho estável, sqrt(2) * RMS é o pico verdadeiro
+        // analítico, sem depender do detector que o limiter usa.
+        double sumSquares = 0.0;
+        for (std::size_t n = from; n < total; ++n)
+            sumSquares += static_cast<double> (channels[0][n]) * channels[0][n];
+        const double rms = std::sqrt (sumSquares / static_cast<double> (total - from));
+        const float amplitude = static_cast<float> (std::sqrt (2.0) * rms);
+
+        REQUIRE (amplitude <= ceilingLin * measureTolerance);
+        REQUIRE (amplitude >= ceilingLin * 0.95f);
+    }
+}
+
+TEST_CASE ("ganho reduz antes do pico e recupera no release")
+{
+    constexpr std::size_t total = 48000; // 1 s
+    constexpr std::size_t peakAt = 100;
+    constexpr std::size_t lookahead = 96; // 2 ms a 48 kHz
+
+    std::vector<float> input (total, 0.1f);
+    input[peakAt] += 2.0f; // a amostra do pico vale 2.1
+
+    TruePeakLimiter limiter;
+    limiter.prepare (sampleRate, 1);
+    limiter.setCeilingDecibels (-1.0f);
+
+    std::vector<std::vector<float>> channels (1, input);
+    processInBlocks (limiter, channels, { 512 });
+
+    const auto lat = static_cast<std::size_t> (limiter.getLatencySamples());
+    REQUIRE (lat == TruePeakDetector::latency + lookahead - 1);
+
+    const std::vector<float>& out = channels[0];
+    // Metade do lookahead antes do pico, o ganho já desceu: ele começa a cair quando
+    // o pico entra no detector, não quando sai.
+    REQUIRE (out[peakAt + lat - lookahead / 2] < 0.1f * 0.8f);
+    REQUIRE (out[peakAt + lat] <= ceilingLin);
+    REQUIRE (out[peakAt + lat + 10] < 0.1f * 0.6f);
+    // Cinco constantes de release de 100 ms depois, o ganho voltou quase a 1.
+    REQUIRE (out[peakAt + lat + 24000] >= 0.099f);
 }
 
 TEST_CASE ("prepare de novo zera o estado")

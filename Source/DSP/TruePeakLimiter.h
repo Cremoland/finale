@@ -39,6 +39,11 @@ public:
             static_cast<std::size_t> (numPreparedChannels) * static_cast<std::size_t> (latencySamples), 0.0f);
         delayPos = 0;
 
+        // Teto atrasado junto com o áudio: a amostra que sai é limitada pelo teto que
+        // estava vigente quando ela entrou. Sem isso, baixar o teto corta as amostras
+        // que ainda estão no lookahead e o corte vira clipe duro. Começa com o teto atual.
+        ceilingDelay.assign (static_cast<std::size_t> (latencySamples), ceilingLin);
+
         // Mínimo deslizante começa com uma entrada de valor 1 no instante -1, que
         // representa a janela inicial cheia de unidades: o ganho começa em 1.
         minTimes.assign (static_cast<std::size_t> (lookahead) + 1, 0);
@@ -82,6 +87,11 @@ public:
 
             const float gain = movingAverage (released);
 
+            // Mesmo atraso do áudio: lê o teto de quando a amostra que sai entrou e grava o atual.
+            float& ceilingSlot = ceilingDelay[static_cast<std::size_t> (delayPos)];
+            const float ceilingOut = ceilingSlot;
+            ceilingSlot = ceilingLin;
+
             for (int ch = 0; ch < active; ++ch)
             {
                 const float x = sanitize (channels[ch][i]);
@@ -91,7 +101,7 @@ public:
 
                 // O clamp é rede de segurança: o ganho já respeita o teto, mas o
                 // true peak medido pelo detector é uma aproximação.
-                channels[ch][i] = std::clamp (delayed * gain, -ceilingLin, ceilingLin);
+                channels[ch][i] = std::clamp (delayed * gain, -ceilingOut, ceilingOut);
             }
 
             delayPos = (delayPos + 1) % latencySamples;
@@ -156,6 +166,7 @@ private:
     int latencySamples = 0; // Dd + L - 1
 
     std::vector<float> delayLines;
+    std::vector<float> ceilingDelay; // um teto por instante, no mesmo anel de delayPos
     int delayPos = 0;
 
     std::vector<std::int64_t> minTimes;
