@@ -63,6 +63,7 @@ TEST_CASE ("ganho em 1 kHz compensa o -0.691")
 {
     const double gainDb = measureGainDb (48000.0, 1000.0);
 
+    // Ganho medido ~0.6977 dB: ~7 mLU de viés, bem dentro de ±0.1 LU.
     REQUIRE (gainDb == Catch::Approx (0.691).margin (0.01));
 }
 

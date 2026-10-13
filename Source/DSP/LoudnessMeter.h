@@ -74,7 +74,8 @@ public:
     float getIntegratedLufs() const { return integratedLufs; }
 
 private:
-    static constexpr int kBins = 7500;
+    // Histograma de −70 a +40 LUFS em passos de 0.01 LU (11000 bins).
+    static constexpr int kBins = 11000;
     static constexpr double kBinBottom = -70.0;
     static constexpr double kBinWidth = 0.01;
     static constexpr double kAbsoluteGate = -70.0;
@@ -125,7 +126,7 @@ private:
         if (loudness < kAbsoluteGate)
             return;
 
-        // Blocos acima de +5 LUFS caem no último bin; a soma de energia continua exata.
+        // Blocos acima de +40 LUFS caem no último bin; a soma de energia continua exata.
         const double position
             = std::clamp (std::floor ((loudness - kBinBottom) / kBinWidth), 0.0, static_cast<double> (kBins - 1));
         Bin& bin = histogram[static_cast<std::size_t> (position)];
@@ -152,14 +153,23 @@ private:
         const double absoluteMean = totalEnergy / static_cast<double> (totalCount);
         const double relativeThreshold = energyToLufs (absoluteMean) - kRelativeGateLu;
 
+        // Gate relativo (eq. 5). Cada bin entra ou sai inteiro, pela sua borda inferior:
+        // é a quantização de 0.01 LU da eq. 5, um bloco dentro do bin do limiar entra ou sai
+        // por inteiro. O último bin mistura tudo acima de +40 LUFS, então usa a loudness da
+        // média de energia do próprio bin; a aproximação só aparece num seno de +40 dBFS de pico.
         std::uint64_t gatedCount = 0;
         double gatedEnergy = 0.0;
         for (int i = 0; i < kBins; ++i)
         {
             const Bin& bin = histogram[static_cast<std::size_t> (i)];
-            const double lowerEdge = kBinBottom + static_cast<double> (i) * kBinWidth;
+            if (bin.count == 0)
+                continue;
 
-            if (bin.count > 0 && lowerEdge >= relativeThreshold)
+            const bool isTopBin = (i == kBins - 1);
+            const double binLoudness = isTopBin ? energyToLufs (bin.energySum / static_cast<double> (bin.count))
+                                                : kBinBottom + static_cast<double> (i) * kBinWidth;
+
+            if (binLoudness >= relativeThreshold)
             {
                 gatedCount += bin.count;
                 gatedEnergy += bin.energySum;

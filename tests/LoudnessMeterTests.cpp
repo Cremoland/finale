@@ -161,9 +161,31 @@ TEST_CASE ("sinal alto", "[loudness]")
 {
     LoudnessMeter meter;
     meter.prepare (kFs, 2);
-    feedAll (meter, tone (kFs, 1000.0, 12.0, 20.0));
+    feedAll (meter, tone (kFs, 1000.0, 20.0, 20.0));
 
-    REQUIRE (meter.getIntegratedLufs() == Catch::Approx (12.0).margin (0.1));
+    REQUIRE (meter.getIntegratedLufs() == Catch::Approx (20.0).margin (0.1));
+}
+
+TEST_CASE ("programa misto acima do topo antigo", "[loudness]")
+{
+    LoudnessMeter meter;
+    meter.prepare (kFs, 2);
+    std::vector<float> signal;
+    append (signal, tone (kFs, 1000.0, 20.0, 20.0));
+    append (signal, tone (kFs, 1000.0, 6.0, 20.0));
+    feedAll (meter, signal);
+
+    // Limiar relativo ~+7.2 LU: os blocos de +6 ficam fora, o integrado e so o de +20.
+    REQUIRE (meter.getIntegratedLufs() == Catch::Approx (20.0).margin (0.1));
+}
+
+TEST_CASE ("gate absoluto descarta -72", "[loudness]")
+{
+    LoudnessMeter meter;
+    meter.prepare (kFs, 2);
+    feedAll (meter, tone (kFs, 1000.0, -72.0, 20.0));
+
+    REQUIRE (meter.getIntegratedLufs() == LoudnessMeter::floorLufs);
 }
 
 TEST_CASE ("sessao longa", "[loudness]")
