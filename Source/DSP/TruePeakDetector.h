@@ -9,10 +9,9 @@
 namespace finale::dsp
 {
 
-// Detector de true peak: interpolação 4x por FIR de 48 taps, a mesma ideia do
-// interpolador da ITU-R BS.1770-4 (Anexo 2). Os coeficientes são gerados aqui
-// (janela de Blackman sobre sinc) em vez de copiados da tabela da norma, e cada
-// fase é normalizada para somar 1 para que DC passe intacto.
+// Detector de true peak: interpolação 4x inspirada na ITU-R BS.1770-4 (coeficientes
+// gerados, não a tabela da norma). FIR de 48 taps com janela de Blackman sobre sinc,
+// e cada fase normalizada para somar 1 para que DC passe intacto.
 //
 // Sem alocação em push(): o histórico é alocado só em prepare().
 class TruePeakDetector
@@ -51,12 +50,6 @@ public:
     {
         history.assign (static_cast<std::size_t> (numChannels) * historyLength, 0.0f);
         writeIndex.assign (static_cast<std::size_t> (numChannels), 0);
-    }
-
-    void reset()
-    {
-        std::fill (history.begin(), history.end(), 0.0f);
-        std::fill (writeIndex.begin(), writeIndex.end(), 0);
     }
 
     // Recebe uma amostra e devolve o maior |valor| entre os 4 pontos interpolados
