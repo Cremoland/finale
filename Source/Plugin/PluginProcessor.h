@@ -1,6 +1,7 @@
 #pragma once
 
 #include "DSP/Gain.h"
+#include "DSP/LoudnessMeter.h"
 #include "DSP/TruePeakLimiter.h"
 
 #include <juce_audio_processors/juce_audio_processors.h>
@@ -47,6 +48,11 @@ public:
 
     juce::AudioProcessorValueTreeState parameters;
 
+    // Leituras de LUFS da saída, para a interface. O editor lê de outra thread, por isso atomic.
+    float getOutputMomentaryLufs() const { return outputMomentaryLufs.load (std::memory_order_relaxed); }
+    float getOutputShortTermLufs() const { return outputShortTermLufs.load (std::memory_order_relaxed); }
+    float getOutputIntegratedLufs() const { return outputIntegratedLufs.load (std::memory_order_relaxed); }
+
 private:
     static juce::AudioProcessorValueTreeState::ParameterLayout createParameterLayout();
 
@@ -54,6 +60,10 @@ private:
     dsp::Gain gain;
     std::atomic<float>* ceilingParam = nullptr;
     dsp::TruePeakLimiter limiter;
+    dsp::LoudnessMeter outputMeter;
+    std::atomic<float> outputMomentaryLufs { dsp::LoudnessMeter::floorLufs };
+    std::atomic<float> outputShortTermLufs { dsp::LoudnessMeter::floorLufs };
+    std::atomic<float> outputIntegratedLufs { dsp::LoudnessMeter::floorLufs };
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (FinaleProcessor)
 };
