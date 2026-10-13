@@ -19,6 +19,21 @@ juce::AudioProcessorValueTreeState::ParameterLayout FinaleProcessor::createParam
         std::make_unique<juce::AudioParameterFloat> (juce::ParameterID { ParamIDs::gain, 1 }, "Gain",
             juce::NormalisableRange<float> (-24.0f, 12.0f, 0.1f), 0.0f,
             juce::AudioParameterFloatAttributes().withLabel ("dB")),
+        std::make_unique<juce::AudioParameterFloat> (juce::ParameterID { ParamIDs::amount, 1 }, "Amount",
+            juce::NormalisableRange<float> (0.0f, 100.0f, 0.1f), 50.0f,
+            juce::AudioParameterFloatAttributes().withLabel ("%")),
+        std::make_unique<juce::AudioParameterFloat> (juce::ParameterID { ParamIDs::ceiling, 1 }, "Ceiling",
+            juce::NormalisableRange<float> (-6.0f, 0.0f, 0.1f), -1.0f,
+            juce::AudioParameterFloatAttributes().withLabel ("dBTP")),
+        std::make_unique<juce::AudioParameterFloat> (juce::ParameterID { ParamIDs::targetLufs, 1 }, "Target LUFS",
+            juce::NormalisableRange<float> (-16.0f, -5.0f, 0.5f), -9.0f,
+            juce::AudioParameterFloatAttributes().withLabel ("LUFS")),
+        // A ordem das opções é permanente: projetos salvos guardam o índice, não o nome.
+        std::make_unique<juce::AudioParameterChoice> (juce::ParameterID { ParamIDs::genre, 1 }, "Genre",
+            juce::StringArray { "Trap", "Rap/Boom bap", "Lo-fi", "Funk BR", "House", "EDM", "Pop", "Rock" }, 6),
+        // A ordem das opções é permanente: projetos salvos guardam o índice, não o nome.
+        std::make_unique<juce::AudioParameterChoice> (juce::ParameterID { ParamIDs::character, 1 }, "Character",
+            juce::StringArray { "Clean", "Warm", "Punch", "Wide", "DOOM" }, 0),
     };
 }
 
