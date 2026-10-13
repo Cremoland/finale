@@ -66,8 +66,10 @@ public:
         float* const ring = history.data() + static_cast<std::size_t> (channel) * historyLength;
         int& w = writeIndex[static_cast<std::size_t> (channel)];
 
+        // NaN/infinito viram silêncio antes de entrar no histórico: senão
+        // contaminariam a saída por 12 amostras. O limiter usa a mesma regra.
         w = (w + 1) % historyLength;
-        ring[w] = sample;
+        ring[w] = std::isfinite (sample) ? sample : 0.0f;
 
         float peak = 0.0f;
         for (int p = 0; p < numPhases; ++p)

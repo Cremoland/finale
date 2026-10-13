@@ -3,7 +3,10 @@
 #include <catch2/catch_approx.hpp>
 #include <catch2/catch_test_macros.hpp>
 
+#include <algorithm>
 #include <cmath>
+#include <cstddef>
+#include <limits>
 #include <vector>
 
 using finale::dsp::TruePeakDetector;
@@ -54,6 +57,36 @@ TEST_CASE ("acha o pico entre amostras")
 
     REQUIRE (maxPeak >= 0.98f);
     REQUIRE (maxPeak <= 1.02f);
+}
+
+TEST_CASE ("entrada não-finita não contamina a saída")
+{
+    TruePeakDetector detector;
+    detector.prepare (1);
+
+    const std::vector<float> input = []
+    {
+        std::vector<float> v (20, 0.5f);
+        v.push_back (std::numeric_limits<float>::quiet_NaN());
+        v.push_back (std::numeric_limits<float>::infinity());
+        v.push_back (-std::numeric_limits<float>::infinity());
+        v.insert (v.end(), 20, 0.5f);
+        return v;
+    }();
+
+    std::vector<float> peaks;
+    for (float sample : input)
+    {
+        const float peak = detector.push (0, sample);
+        REQUIRE (std::isfinite (peak));
+        REQUIRE (peak <= 1.0f); // overshoot limitado: nada explode
+        peaks.push_back (peak);
+    }
+
+    // Os 3 valores ruins saem do histórico de 12 amostras até o índice 34;
+    // do índice 35 em diante (últimas 8) a saída volta a ser o DC de 0.5.
+    for (std::size_t i = peaks.size() - 8; i < peaks.size(); ++i)
+        REQUIRE (peaks[i] == Catch::Approx (0.5f).epsilon (1e-4));
 }
 
 TEST_CASE ("canais são independentes")
