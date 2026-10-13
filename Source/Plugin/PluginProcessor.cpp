@@ -12,6 +12,7 @@ FinaleProcessor::FinaleProcessor() :
 {
     gainParam = parameters.getRawParameterValue (ParamIDs::gain);
     ceilingParam = parameters.getRawParameterValue (ParamIDs::ceiling);
+    compressionParam = parameters.getRawParameterValue (ParamIDs::compression);
 }
 
 juce::AudioProcessorValueTreeState::ParameterLayout FinaleProcessor::createParameterLayout()
@@ -35,6 +36,9 @@ juce::AudioProcessorValueTreeState::ParameterLayout FinaleProcessor::createParam
         // A ordem das opções é permanente: projetos salvos guardam o índice, não o nome.
         std::make_unique<juce::AudioParameterChoice> (juce::ParameterID { ParamIDs::character, 1 }, "Character",
             juce::StringArray { "Clean", "Warm", "Punch", "Wide", "DOOM" }, 0),
+        std::make_unique<juce::AudioParameterFloat> (juce::ParameterID { ParamIDs::compression, 1 }, "Compression",
+            juce::NormalisableRange<float> (0.0f, 100.0f, 0.1f), 0.0f,
+            juce::AudioParameterFloatAttributes().withLabel ("%")),
     };
 }
 
@@ -43,6 +47,7 @@ void FinaleProcessor::prepareToPlay (double sampleRate, int)
     gain.setGainDecibels (gainParam->load());
     gain.prepare (sampleRate);
 
+    compressor.prepare (sampleRate, std::max (1, getTotalNumOutputChannels()));
     limiter.prepare (sampleRate, std::max (1, getTotalNumOutputChannels()));
     outputMeter.prepare (sampleRate, std::max (1, getTotalNumOutputChannels()));
     limiter.setCeilingDecibels (ceilingParam->load());
@@ -62,6 +67,10 @@ void FinaleProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::Midi
 
     gain.setGainDecibels (gainParam->load());
     gain.process (buffer.getArrayOfWritePointers(), buffer.getNumChannels(), buffer.getNumSamples());
+
+    // shortcut: 0–100 % vira razão 1:1–4:1; o knob principal (#11) e os presets vão mapear isso depois
+    compressor.setRatio (1.0f + 3.0f * compressionParam->load() / 100.0f);
+    compressor.process (buffer.getArrayOfWritePointers(), buffer.getNumChannels(), buffer.getNumSamples());
 
     limiter.setCeilingDecibels (ceilingParam->load());
     limiter.process (buffer.getArrayOfWritePointers(), buffer.getNumChannels(), buffer.getNumSamples());

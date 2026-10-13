@@ -1,5 +1,7 @@
 #pragma once
 
+#include "Biquad.h"
+
 #include <cmath>
 #include <cstddef>
 #include <numbers>
@@ -17,10 +19,7 @@ namespace finale::dsp
 class KWeighting
 {
 public:
-    struct Coefficients
-    {
-        double b0, b1, b2, a1, a2;
-    };
+    using Coefficients = BiquadCoefficients;
 
     // Calcula os coeficientes e aloca/zera o estado. Única parte que aloca.
     void prepare (double sampleRate, int numChannels)
@@ -38,31 +37,14 @@ public:
         if (!std::isfinite (sample))
             sample = 0.0;
 
-        const double shelved = runBiquad (shelfCoefficients, shelfStates[static_cast<std::size_t> (channel)], sample);
-        return runBiquad (highPassCoefficients, highPassStates[static_cast<std::size_t> (channel)], shelved);
+        const double shelved = shelfStates[static_cast<std::size_t> (channel)].process (shelfCoefficients, sample);
+        return highPassStates[static_cast<std::size_t> (channel)].process (highPassCoefficients, shelved);
     }
 
     const Coefficients& stage1() const { return shelfCoefficients; }
     const Coefficients& stage2() const { return highPassCoefficients; }
 
 private:
-    struct BiquadState
-    {
-        double x1 = 0.0, x2 = 0.0, y1 = 0.0, y2 = 0.0;
-    };
-
-    static double runBiquad (const Coefficients& c, BiquadState& s, double x)
-    {
-        const double y = c.b0 * x + c.b1 * s.x1 + c.b2 * s.x2 - c.a1 * s.y1 - c.a2 * s.y2;
-
-        s.x2 = s.x1;
-        s.x1 = x;
-        s.y2 = s.y1;
-        s.y1 = y;
-
-        return y;
-    }
-
     static Coefficients makeHeadShelf (double fs)
     {
         const double f0 = 1681.974450955533;

@@ -2,6 +2,7 @@
 
 #include "DSP/Gain.h"
 #include "DSP/LoudnessMeter.h"
+#include "DSP/MultibandCompressor.h"
 #include "DSP/TruePeakLimiter.h"
 
 #include <juce_audio_processors/juce_audio_processors.h>
@@ -17,6 +18,7 @@ inline constexpr auto ceiling = "ceiling";
 inline constexpr auto targetLufs = "targetLufs";
 inline constexpr auto genre = "genre";
 inline constexpr auto character = "character";
+inline constexpr auto compression = "compression";
 } // namespace ParamIDs
 
 class FinaleProcessor : public juce::AudioProcessor
@@ -58,6 +60,8 @@ private:
 
     std::atomic<float>* gainParam = nullptr;
     dsp::Gain gain;
+    std::atomic<float>* compressionParam = nullptr;
+    dsp::MultibandCompressor compressor;
     std::atomic<float>* ceilingParam = nullptr;
     dsp::TruePeakLimiter limiter;
     dsp::LoudnessMeter outputMeter;
