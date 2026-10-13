@@ -35,7 +35,11 @@ public:
         delayIndex = 0;
     }
 
-    void setDriveDecibels (float db) { targetDriveDb = std::max (0.0, static_cast<double> (db)); }
+    void setDriveDecibels (float db)
+    {
+        // shortcut: teto de 48 dB de drive; o DOOM usa 30.
+        targetDriveDb = std::isfinite (db) ? std::clamp (static_cast<double> (db), 0.0, 48.0) : 0.0;
+    }
 
     void setMix (float value)
     {

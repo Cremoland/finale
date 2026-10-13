@@ -243,6 +243,46 @@ TEST_CASE ("saturação: entrada não-finita")
         == Catch::Approx (levelDb (ref, last - oneSecond / 2, last)).margin (0.1));
 }
 
+TEST_CASE ("saturação: drive inválido não gera NaN")
+{
+    const std::vector<double> input = sine (1000.0, 0.5, fs, 4 * oneSecond);
+
+    Saturator saturator;
+    saturator.prepare (fs, 2);
+    saturator.setMix (1.0f);
+
+    std::vector<double> output;
+    const float drives[] = { std::numeric_limits<float>::infinity(), std::numeric_limits<float>::quiet_NaN(), 1e6f };
+    std::size_t from = 0;
+    for (float drive : drives)
+    {
+        saturator.setDriveDecibels (drive);
+        renderRange (saturator, input, 2, from, from + oneSecond, { 512 }, output);
+        from += oneSecond;
+    }
+
+    std::size_t nonFinite = 0;
+    for (double y : output)
+        nonFinite += std::isfinite (y) ? 0 : 1;
+    REQUIRE (output.size() == 3 * oneSecond);
+    REQUIRE (nonFinite == 0);
+}
+
+TEST_CASE ("saturação: molhado alinhado com o seco")
+{
+    const std::vector<double> input = sine (1000.0, 0.01, fs, oneSecond);
+
+    Saturator saturator;
+    saturator.prepare (fs, 2);
+    saturator.setDriveDecibels (0.0f);
+    saturator.setMix (1.0f);
+
+    const std::vector<double> output = render (saturator, input, 2, { 512 });
+
+    for (std::size_t n = 200; n + Saturator::latency < output.size(); ++n)
+        REQUIRE (output[n + Saturator::latency] == Catch::Approx (input[n]).margin (1e-4));
+}
+
 TEST_CASE ("mono e outros sample rates")
 {
     struct Config
