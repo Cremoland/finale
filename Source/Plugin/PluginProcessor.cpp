@@ -11,6 +11,7 @@ FinaleProcessor::FinaleProcessor() :
     parameters (*this, nullptr, "FinaleState", createParameterLayout())
 {
     gainParam = parameters.getRawParameterValue (ParamIDs::gain);
+    ceilingParam = parameters.getRawParameterValue (ParamIDs::ceiling);
 }
 
 juce::AudioProcessorValueTreeState::ParameterLayout FinaleProcessor::createParameterLayout()
@@ -41,6 +42,10 @@ void FinaleProcessor::prepareToPlay (double sampleRate, int)
 {
     gain.setGainDecibels (gainParam->load());
     gain.prepare (sampleRate);
+
+    limiter.prepare (sampleRate, std::max (1, getTotalNumOutputChannels()));
+    limiter.setCeilingDecibels (ceilingParam->load());
+    setLatencySamples (limiter.getLatencySamples());
 }
 
 bool FinaleProcessor::isBusesLayoutSupported (const BusesLayout& layouts) const
@@ -56,6 +61,9 @@ void FinaleProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::Midi
 
     gain.setGainDecibels (gainParam->load());
     gain.process (buffer.getArrayOfWritePointers(), buffer.getNumChannels(), buffer.getNumSamples());
+
+    limiter.setCeilingDecibels (ceilingParam->load());
+    limiter.process (buffer.getArrayOfWritePointers(), buffer.getNumChannels(), buffer.getNumSamples());
 }
 
 juce::AudioProcessorEditor* FinaleProcessor::createEditor()

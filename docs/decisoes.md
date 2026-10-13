@@ -24,7 +24,7 @@ Plugin de masterização "de um knob" no estilo Soundgoodizer, com assistente qu
 - **Seletor de caráter** por cima do gênero: **Clean** (padrão, transparente), **Warm** (mais saturação, corpo), **Punch** (compressão rápida, transientes), **Wide** (largura e brilho), **DOOM** (crunch estourado/clipado, mas harmônico: soft clip agressivo com oversampling, respeitando o teto de true peak)
 - **Loudness:** alvo por gênero (ex: Lo-fi −12, Pop −9, Funk/EDM −7 LUFS), teto −1 dBTP, ajustáveis
 - **A/B com volume igualado** + medidor de LUFS (atual vs alvo)
-- **Qualidade:** crossovers Linkwitz-Riley (latência zero) + oversampling 2x na saturação e no limiter
+- **Qualidade:** crossovers Linkwitz-Riley (latência zero) + oversampling 2x na saturação; o limiter detecta true peak com interpolação 4x inspirada na ITU-R BS.1770-4 (coeficientes gerados, não a tabela da norma), porque pega os picos entre amostras como os medidores de dBTP, com menos CPU que rodar o limiter em 2x (decidido 13/10)
 - **Curvas de referência:** ferramenta no repo analisa WAVs de referência e gera JSON por gênero. WAVs ficam só na máquina de cada um, nunca no repo.
 
 ## Interface

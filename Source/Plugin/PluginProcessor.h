@@ -1,6 +1,7 @@
 #pragma once
 
 #include "DSP/Gain.h"
+#include "DSP/TruePeakLimiter.h"
 
 #include <juce_audio_processors/juce_audio_processors.h>
 
@@ -51,6 +52,8 @@ private:
 
     std::atomic<float>* gainParam = nullptr;
     dsp::Gain gain;
+    std::atomic<float>* ceilingParam = nullptr;
+    dsp::TruePeakLimiter limiter;
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (FinaleProcessor)
 };
