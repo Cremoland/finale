@@ -91,18 +91,62 @@ double bandLevelDb (const std::vector<float>& x, double fs, int band)
     return 20.0 * std::log10 (std::sqrt (sum / static_cast<double> (tail)));
 }
 
-// Seno de 1 kHz a −6 dBFS, 2 s, ratio 4: a saída deve dar −18.1 dBFS RMS.
+// Compara a saída com o modelo estático (ratio 4, joelho em −18 dBFS) montado com o mesmo crossover, para o vazamento
+// entre bandas entrar dos dois lados. Low e high ficam em ganho 1 (abaixo do limiar); a mid recebe o ganho estático.
+// Últimos 1 s de um sinal de 2 s.
+void requireMatchesStaticModel (const std::vector<float>& input, const std::vector<float>& output, double fs)
+{
+    const auto total = static_cast<std::size_t> (2.0 * fs);
+    const auto tail = static_cast<std::size_t> (fs);
+
+    ThreeBandCrossover crossover;
+    crossover.prepare (fs, 1, 200.0, 2000.0);
+    std::vector<double> low (total);
+    std::vector<double> mid (total);
+    std::vector<double> high (total);
+    for (std::size_t n = 0; n < total; ++n)
+        crossover.process (0, input[n], low[n], mid[n], high[n]);
+
+    const double thresholdLin = std::pow (10.0, -18.0 / 20.0);
+    double maxLow = 0.0;
+    double maxMid = 0.0;
+    double maxHigh = 0.0;
+    for (std::size_t n = total - tail; n < total; ++n)
+    {
+        maxLow = std::max (maxLow, std::abs (low[n]));
+        maxMid = std::max (maxMid, std::abs (mid[n]));
+        maxHigh = std::max (maxHigh, std::abs (high[n]));
+    }
+    REQUIRE (maxLow < thresholdLin);
+    REQUIRE (maxHigh < thresholdLin);
+
+    const double overDb = 20.0 * std::log10 (maxMid) + 18.0;
+    const double gMid = std::pow (10.0, -overDb * (1.0 - 1.0 / 4.0) / 20.0);
+
+    double modelPow = 0.0;
+    double outPow = 0.0;
+    for (std::size_t n = total - tail; n < total; ++n)
+    {
+        const double model = low[n] + gMid * mid[n] + high[n];
+        modelPow += model * model;
+        outPow += static_cast<double> (output[n]) * output[n];
+    }
+    REQUIRE (10.0 * std::log10 (outPow / tail) == Catch::Approx (10.0 * std::log10 (modelPow / tail)).margin (0.15));
+}
+
+// Seno de 1 kHz a −6 dBFS, 2 s, ratio 4, comparado com o modelo estático.
 void requireAboveThresholdCompresses (double fs, int numChannels)
 {
+    const auto total = static_cast<std::size_t> (2.0 * fs);
+    const Stereo in = sine (fs, 2.0, 1000.0, -6.0);
+
     MultibandCompressor comp;
     comp.prepare (fs, numChannels);
     comp.setRatio (4.0f);
-
-    const auto total = static_cast<std::size_t> (2.0 * fs);
-    Stereo s = sine (fs, 2.0, 1000.0, -6.0);
+    Stereo s = in;
     processInBlocks (comp, s, 0, total, kBlock, numChannels);
 
-    REQUIRE (levelDb (s.l, total / 2, total) == Catch::Approx (-15.9).margin (0.5));
+    requireMatchesStaticModel (in.l, s.l, fs);
 }
 } // namespace
 
@@ -137,19 +181,19 @@ TEST_CASE ("abaixo do limiar não muda")
 
 TEST_CASE ("acima do limiar comprime pela razão")
 {
-    // o detector de pico com release de 120 ms solta um pouco entre os picos do seno, então a redução estabiliza em
-    // ~7.6 dB e não nos 8.8 dB da curva estática (conferido com uma implementação independente).
+    const Stereo in = sine (48000, 2.0, 1000.0, -6.0);
+
     MultibandCompressor comp;
     comp.prepare (48000, 2);
     comp.setRatio (4.0f);
-    Stereo s = sine (48000, 2.0, 1000.0, -6.0);
+    Stereo s = in;
     processInBlocks (comp, s, 0, 96000);
-    REQUIRE (levelDb (s.l, 48000, 96000) == Catch::Approx (-15.9).margin (0.5));
+    requireMatchesStaticModel (in.l, s.l, 48000);
 
     MultibandCompressor unity;
     unity.prepare (48000, 2);
     unity.setRatio (1.0f);
-    Stereo u = sine (48000, 2.0, 1000.0, -6.0);
+    Stereo u = in;
     processInBlocks (unity, u, 0, 96000);
     REQUIRE (levelDb (u.l, 48000, 96000) - levelDb (s.l, 48000, 96000) >= 5.0);
 }
@@ -256,10 +300,84 @@ TEST_CASE ("compressor: mono funciona")
     comp.prepare (48000, 1);
     comp.setRatio (4.0f);
 
-    Stereo s = sine (48000, 2.0, 1000.0, -6.0);
+    const Stereo in = sine (48000, 2.0, 1000.0, -6.0);
+    Stereo s = in;
     processInBlocks (comp, s, 0, 96000, kBlock, 1);
+    requireMatchesStaticModel (in.l, s.l, 48000);
+}
 
-    REQUIRE (levelDb (s.l, 48000, 96000) == Catch::Approx (-15.9).margin (0.5));
+TEST_CASE ("detecção linkada entre canais")
+{
+    // L a −6 dBFS e R a −30 dBFS: R não passa do limiar sozinho, mas tem que levar a mesma redução de L.
+    Stereo s = sine (48000, 2.0, 1000.0, -6.0);
+    s.r = sine (48000, 2.0, 1000.0, -30.0).l;
+
+    MultibandCompressor comp;
+    comp.prepare (48000, 2);
+    comp.setRatio (4.0f);
+    Stereo c = s;
+    processInBlocks (comp, c, 0, 96000);
+
+    MultibandCompressor unity;
+    unity.prepare (48000, 2);
+    unity.setRatio (1.0f);
+    Stereo u = s;
+    processInBlocks (unity, u, 0, 96000);
+
+    const double dropL = levelDb (c.l, 48000, 96000) - levelDb (u.l, 48000, 96000);
+    const double dropR = levelDb (c.r, 48000, 96000) - levelDb (u.r, 48000, 96000);
+
+    REQUIRE (dropR == Catch::Approx (dropL).margin (0.2));
+    REQUIRE (-dropL > 5.0);
+}
+
+TEST_CASE ("attack e release têm os tempos certos")
+{
+    // 0.5 s de silêncio e depois 1 kHz a −6 dBFS. A redução em t é medida na janela de 1 ms que termina em t,
+    // comparando ratio 4 com ratio 1 (1 ms = 1 período de 1 kHz a 48 kHz, então o máximo da janela é o pico do tom).
+    const std::size_t onset = 24000;
+    const std::size_t total = onset + 48000;
+    const std::size_t win = 48;
+
+    Stereo s;
+    s.l.assign (total, 0.0f);
+    const Stereo tone = sine (48000, 1.0, 1000.0, -6.0);
+    std::copy (tone.l.begin(), tone.l.end(), s.l.begin() + static_cast<std::ptrdiff_t> (onset));
+    s.r = s.l;
+
+    MultibandCompressor comp;
+    comp.prepare (48000, 2);
+    comp.setRatio (4.0f);
+    Stereo c = s;
+    processInBlocks (comp, c, 0, total);
+
+    MultibandCompressor unity;
+    unity.prepare (48000, 2);
+    unity.setRatio (1.0f);
+    Stereo u = s;
+    processInBlocks (unity, u, 0, total);
+
+    // Redução em dB (positiva) na janela [end − 1 ms, end).
+    auto reductionAt = [&] (std::size_t end)
+    {
+        double peakC = 0.0;
+        double peakU = 0.0;
+        for (std::size_t n = end - win; n < end; ++n)
+        {
+            peakC = std::max (peakC, std::abs (static_cast<double> (c.l[n])));
+            peakU = std::max (peakU, std::abs (static_cast<double> (u.l[n])));
+        }
+        return -20.0 * std::log10 (peakC / peakU);
+    };
+
+    double rFinal = 0.0;
+    for (std::size_t end = total - 9600; end < total; ++end)
+        rFinal += reductionAt (end);
+    rFinal /= 9600.0;
+
+    REQUIRE (rFinal > 5.0);
+    REQUIRE (reductionAt (onset + 48) <= 0.5 * rFinal);
+    REQUIRE (reductionAt (onset + 1440) >= 0.8 * rFinal);
 }
 
 TEST_CASE ("compressor: outros sample rates")

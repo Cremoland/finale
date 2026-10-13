@@ -15,15 +15,16 @@ namespace finale::dsp
 // cada banda tem um ganho próprio, linkado entre canais (o maior nível manda).
 //
 // Curva estática com joelho duro e detector de pico no domínio de dB, com suavização
-// "branching" (attack quando o alvo está abaixo do estado, release quando está acima):
-// Giannoulis, Massberg & Reiss, "Digital Dynamic Range Compressor Design: A Tutorial and
-// Analysis", JAES 2012. Os coeficientes são polos exponenciais de primeira ordem.
+// "smooth decoupled" (o pico da redução é segurado e solta pelo release; depois suaviza pelo
+// attack): Giannoulis, Massberg & Reiss, "Digital Dynamic Range Compressor Design: A Tutorial
+// and Analysis", JAES 2012. Os coeficientes são polos exponenciais de primeira ordem.
 class MultibandCompressor
 {
 public:
     // Calcula crossover e coeficientes e zera todo o estado. Única parte que aloca.
     void prepare (double sampleRate, int numChannels)
     {
+        // shortcut: crossovers fixos em 200 Hz e 2 kHz; presets e Auto vão escolher.
         crossover.prepare (sampleRate, numChannels, 200.0, 2000.0);
         bands.assign (static_cast<std::size_t> (std::max (numChannels, 0)), { });
 
@@ -31,6 +32,7 @@ public:
         {
             attackCoeff[k] = std::exp (-1.0 / (attackMs[k] / 1000.0 * sampleRate));
             releaseCoeff[k] = std::exp (-1.0 / (releaseMs[k] / 1000.0 * sampleRate));
+            holdDb[k] = 0.0;
             gainDb[k] = 0.0;
         }
     }
@@ -66,8 +68,11 @@ public:
                 const double overDb = 20.0 * std::log10 (std::max (level, 1e-10)) - thresholdDb;
                 const double targetDb = overDb > 0.0 ? -overDb * (1.0 - 1.0 / ratio) : 0.0;
 
-                const double a = targetDb < gainDb[k] ? attackCoeff[k] : releaseCoeff[k];
-                gainDb[k] = a * gainDb[k] + (1.0 - a) * targetDb;
+                // Detector desacoplado (Giannoulis et al. 2012, seção de detectores no domínio de dB):
+                // o mínimo segura o pico da redução e solta pelo release; o attack suaviza o resultado.
+                // Sem o estado de pico, o ganho acompanharia a onda e modularia o grave.
+                holdDb[k] = std::min (targetDb, releaseCoeff[k] * holdDb[k] + (1.0 - releaseCoeff[k]) * targetDb);
+                gainDb[k] = attackCoeff[k] * gainDb[k] + (1.0 - attackCoeff[k]) * holdDb[k];
                 gain[k] = std::pow (10.0, gainDb[k] / 20.0);
             }
 
@@ -89,6 +94,7 @@ private:
     std::vector<std::array<double, 3>> bands;
     std::array<double, 3> attackCoeff { };
     std::array<double, 3> releaseCoeff { };
+    std::array<double, 3> holdDb { };
     std::array<double, 3> gainDb { };
     double ratio = 1.0;
 };
