@@ -10,7 +10,12 @@ namespace finale
 namespace ParamIDs
 {
 inline constexpr auto gain = "gain";
-}
+inline constexpr auto amount = "amount";
+inline constexpr auto ceiling = "ceiling";
+inline constexpr auto targetLufs = "targetLufs";
+inline constexpr auto genre = "genre";
+inline constexpr auto character = "character";
+} // namespace ParamIDs
 
 class FinaleProcessor : public juce::AudioProcessor
 {
