@@ -11,6 +11,7 @@ namespace finale::dsp
 // Oversampler 2x com meia banda: FIR de 63 taps em fase linear, janela de Blackman
 // sobre sinc, corte em fs_base/2 na taxa 2x. Os coeficientes são gerados, não
 // tabelados. Ganho DC unitário nas duas direções.
+// Fonte: Oppenheim & Schafer, "Discrete-Time Signal Processing", projeto de FIR por janelamento.
 //
 // Ida e volta: atraso puro de `latency` amostras da taxa base.
 // Sem alocação em upsample/downsample: o histórico é alocado só em prepare().
