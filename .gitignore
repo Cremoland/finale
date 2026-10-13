@@ -13,3 +13,6 @@ references/
 *.aiff
 *.flac
 *.mp3
+
+# Rascunho local do fluxo com subagents (ledger, briefs, relatórios)
+.superpowers/
