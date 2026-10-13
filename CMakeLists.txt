@@ -70,7 +70,7 @@ if(FINALE_BUILD_TESTS)
     FetchContent_MakeAvailable(Catch2)
 
     enable_testing()
-    add_executable(finale_tests tests/GainTests.cpp tests/TruePeakDetectorTests.cpp)
+    add_executable(finale_tests tests/GainTests.cpp tests/TruePeakDetectorTests.cpp tests/TruePeakLimiterTests.cpp)
     target_link_libraries(finale_tests PRIVATE finale_dsp Catch2::Catch2WithMain)
     add_test(NAME dsp COMMAND finale_tests)
 endif()
