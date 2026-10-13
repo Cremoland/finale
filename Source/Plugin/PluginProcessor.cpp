@@ -44,6 +44,7 @@ void FinaleProcessor::prepareToPlay (double sampleRate, int)
     gain.prepare (sampleRate);
 
     limiter.prepare (sampleRate, std::max (1, getTotalNumOutputChannels()));
+    outputMeter.prepare (sampleRate, std::max (1, getTotalNumOutputChannels()));
     limiter.setCeilingDecibels (ceilingParam->load());
     setLatencySamples (limiter.getLatencySamples());
 }
@@ -64,6 +65,12 @@ void FinaleProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::Midi
 
     limiter.setCeilingDecibels (ceilingParam->load());
     limiter.process (buffer.getArrayOfWritePointers(), buffer.getNumChannels(), buffer.getNumSamples());
+
+    // Mede depois do limiter: o que o usuário ouve é o que conta para o LUFS.
+    outputMeter.process (buffer.getArrayOfReadPointers(), buffer.getNumChannels(), buffer.getNumSamples());
+    outputMomentaryLufs.store (outputMeter.getMomentaryLufs(), std::memory_order_relaxed);
+    outputShortTermLufs.store (outputMeter.getShortTermLufs(), std::memory_order_relaxed);
+    outputIntegratedLufs.store (outputMeter.getIntegratedLufs(), std::memory_order_relaxed);
 }
 
 juce::AudioProcessorEditor* FinaleProcessor::createEditor()
