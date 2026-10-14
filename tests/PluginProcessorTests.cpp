@@ -1,4 +1,5 @@
 #include "DSP/Saturator.h"
+#include "DSP/TonalAssistant.h"
 #include "DSP/TruePeakDetector.h"
 #include "DSP/TruePeakLimiter.h"
 #include "Plugin/PluginProcessor.h"
@@ -295,4 +296,127 @@ TEST_CASE ("estado: correção do assistente sobrevive ao salvar e abrir o proje
         c.processBlock (silence, midi);
         CHECK (c.getAssistantCorrectionDb() == Approx (correction).margin (1.0e-4));
     }
+}
+
+namespace
+{
+
+// Ruído "abafado": gaussiano passando por dois passa-baixas de um polo em 300 Hz (sobra pouco agudo).
+// Processa `seconds` em blocos de 512 a 48 kHz.
+void runDull (FinaleProcessor& p, double seconds)
+{
+    std::mt19937 rng (3);
+    std::normal_distribution<float> noise (0.0f, 0.5f);
+    const float a = std::exp (-2.0f * 3.14159265f * 300.0f / 48000.0f);
+    float s1 = 0.0f, s2 = 0.0f;
+    juce::AudioBuffer<float> buffer (2, 512);
+    juce::MidiBuffer midi;
+
+    const int blocks = static_cast<int> (seconds * 48000.0 / 512.0);
+    for (int blk = 0; blk < blocks; ++blk)
+    {
+        for (int i = 0; i < 512; ++i)
+        {
+            s1 = (1.0f - a) * noise (rng) + a * s1;
+            s2 = (1.0f - a) * s1 + a * s2;
+            buffer.setSample (0, i, s2);
+            buffer.setSample (1, i, s2);
+        }
+        p.processBlock (buffer, midi);
+    }
+}
+
+} // namespace
+
+TEST_CASE ("assistente tonal: Off não corrige")
+{
+    const juce::ScopedJuceInitialiser_GUI juceInit;
+    FinaleProcessor p;
+    p.prepareToPlay (48000.0, 512);
+    runDull (p, 10.0);
+    for (float c : p.getTonalCorrectionDb())
+        CHECK (c == 0.0f);
+}
+
+TEST_CASE ("assistente tonal: Auto abre o agudo de uma mix abafada")
+{
+    const juce::ScopedJuceInitialiser_GUI juceInit;
+    FinaleProcessor p;
+    setParam (p, finale::ParamIDs::assistant, 2.0f); // Auto
+    p.prepareToPlay (48000.0, 512);
+    runDull (p, 30.0);
+
+    const auto correction = p.getTonalCorrectionDb();
+    CHECK (correction[3] > 3.0f); // mais agudo
+    CHECK (correction[0] < -3.0f); // menos grave
+    for (float c : correction)
+        CHECK (std::abs (c) <= finale::dsp::TonalAssistant::maxCorrectionDb);
+}
+
+TEST_CASE ("estado: correção tonal sobrevive ao salvar e abrir o projeto")
+{
+    const juce::ScopedJuceInitialiser_GUI juceInit;
+    FinaleProcessor a;
+    setParam (a, finale::ParamIDs::assistant, 2.0f); // Auto
+    a.prepareToPlay (48000.0, 512);
+    runDull (a, 30.0);
+    const auto correction = a.getTonalCorrectionDb();
+    REQUIRE (correction[3] > 3.0f);
+
+    setParam (a, finale::ParamIDs::assistant, 3.0f); // Congelar
+    juce::MemoryBlock state;
+    a.getStateInformation (state);
+
+    FinaleProcessor b;
+    b.setStateInformation (state.getData(), static_cast<int> (state.getSize()));
+    juce::MemoryBlock resaved;
+    b.getStateInformation (resaved);
+
+    for (auto* saved : { &state, &resaved })
+    {
+        FinaleProcessor c;
+        c.setStateInformation (saved->getData(), static_cast<int> (saved->getSize()));
+        c.prepareToPlay (48000.0, 512);
+        juce::AudioBuffer<float> silence (2, 512);
+        silence.clear();
+        juce::MidiBuffer midi;
+        c.processBlock (silence, midi);
+
+        const auto restored = c.getTonalCorrectionDb();
+        for (std::size_t band = 0; band < 4; ++band)
+            CHECK (restored[band] == Approx (correction[band]).margin (1.0e-4));
+    }
+}
+
+TEST_CASE ("estado: projeto antigo zera a correção tonal")
+{
+    const juce::ScopedJuceInitialiser_GUI juceInit;
+    FinaleProcessor a;
+    setParam (a, finale::ParamIDs::assistant, 2.0f); // Auto
+    a.prepareToPlay (48000.0, 512);
+    runDull (a, 30.0);
+    REQUIRE (a.getTonalCorrectionDb()[3] > 3.0f);
+
+    // Congelar antes de salvar: o silêncio não move a correção, então um zero depois prova o reset.
+    setParam (a, finale::ParamIDs::assistant, 3.0f);
+    juce::MemoryBlock state;
+    a.getStateInformation (state);
+
+    // Estado de projeto antigo: sem as propriedades da correção tonal.
+    auto xml = juce::AudioProcessor::getXmlFromBinary (state.getData(), static_cast<int> (state.getSize()));
+    REQUIRE (xml != nullptr);
+    for (int b = 0; b < 4; ++b)
+        xml->removeAttribute ("tonalCorrectionDb" + juce::String (b));
+    juce::MemoryBlock oldState;
+    juce::AudioProcessor::copyXmlToBinary (*xml, oldState);
+
+    // Mesma instância: a correção de antes não pode sobrar.
+    a.setStateInformation (oldState.getData(), static_cast<int> (oldState.getSize()));
+    juce::AudioBuffer<float> silence (2, 512);
+    silence.clear();
+    juce::MidiBuffer midi;
+    a.processBlock (silence, midi);
+
+    for (float c : a.getTonalCorrectionDb())
+        CHECK (c == 0.0f);
 }

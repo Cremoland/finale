@@ -26,6 +26,11 @@ Plugin de masterização "de um knob" no estilo Soundgoodizer, com assistente qu
 - **A/B com volume igualado** + medidor de LUFS (atual vs alvo)
 - **Qualidade:** crossovers Linkwitz-Riley (latência zero) + oversampling 2x na saturação; o limiter detecta true peak com interpolação 4x inspirada na ITU-R BS.1770-4 (coeficientes gerados, não a tabela da norma), porque pega os picos entre amostras como os medidores de dBTP, com menos CPU que rodar o limiter em 2x (decidido 13/10)
 - **Curvas de referência:** `finale_curvegen` (`tools/curvegen/`) lê `references/<pasta do gênero>/` com WAV, AIFF ou FLAC (MP3 não entra) e gera `Source/DSP/GenreCurveTable.h`. É um header C++, não JSON, para o plugin não precisar de parser. Pastas: `Trap`, `Rap-Boom bap`, `Lo-fi`, `Funk BR`, `House`, `EDM`, `Pop`, `Rock`. As referências definem a diferença entre os gêneros; o viés comum é a média, por banda, da tabela atual só dos gêneros medidos (gênero sem referência não entra nessa média nem muda). Precisa de pelo menos 2 gêneros com referência; ±6 dB é o limite da diferença entre gêneros, não do valor final. As bandas das pontas cobrem 25–127 Hz e 7–20 kHz (o que os shelves afetam), e cada banda é normalizada pela largura efetiva da resposta real dos filtros. Taxa mínima das referências: 32 kHz. WAVs ficam só na máquina de cada um, nunca no repo. (decidido 14/10)
+- **Assistente tonal (14/10):**
+  - Usa o mesmo seletor Analisar/Auto/Congelar do loudness, e Off desliga os dois.
+  - Mede a forma espectral do original (4 bandas, antes do EQ, só acima de −50 LUFS short-term, memória de 10 s) e puxa os ganhos do EQ tonal na direção de uma forma neutra, até ±6 dB por banda, escalados por amount × EQ. A curva do gênero continua por cima.
+  - Forma neutra: espectro médio de pop dos anos 1990 (Adrian & Bitzer, DAGA 2014, fig. 2, lido na curva), +5 / +1,5 / −1,5 / −5 dB em 90 Hz / 300 Hz / 3 kHz / 10 kHz em relação à média. Não há curva tonal publicada por gênero (`docs/pesquisa/2026-10-14-parametros-por-genero.md`).
+  - Próximo passo: alvo por gênero medido nas referências pelo `finale_curvegen`.
 
 ## Interface
 
