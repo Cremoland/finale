@@ -20,6 +20,13 @@ namespace finale::dsp
 class AbCompare
 {
 public:
+    AbCompare() = default;
+
+    // scratchPtrs aponta para o próprio vetor scratch: copiar o objeto deixaria a
+    // cópia apontando para a memória da original.
+    AbCompare (const AbCompare&) = delete;
+    AbCompare& operator= (const AbCompare&) = delete;
+
     // true toca o original. Pode ser chamado antes de prepare().
     void setCompare (bool original) { compareTarget = original ? 1.0f : 0.0f; }
 
@@ -70,15 +77,26 @@ public:
         fade.assign (static_cast<std::size_t> (blockCapacity), 0.0f);
     }
 
-    // numChannels acima do valor de prepare() não são tocados. numSamples acima de
-    // maxBlockSize é recortado (o plugin garante que não acontece).
+    // numChannels acima do valor de prepare() não são tocados. numSamples pode ser
+    // maior que maxBlockSize: o trabalho é quebrado em pedaços de maxBlockSize, para
+    // que o atraso do original e os suavizadores andem amostra a amostra sem pular.
     void process (const float* const* dry, float* const* wet, int numChannels, int numSamples)
     {
         const int active = std::min (numChannels, numPrepared);
-        const int length = std::min (numSamples, blockCapacity);
-        if (active <= 0 || length <= 0)
+        if (active <= 0 || blockCapacity <= 0 || numSamples <= 0)
             return;
 
+        for (int offset = 0; offset < numSamples; offset += blockCapacity)
+        {
+            const int length = std::min (blockCapacity, numSamples - offset);
+            processChunk (dry, wet, active, offset, length);
+        }
+    }
+
+private:
+    // Processa `length` amostras começando em `offset`. length <= blockCapacity.
+    void processChunk (const float* const* dry, float* const* wet, int active, int offset, int length)
+    {
         const auto block = static_cast<std::size_t> (blockCapacity);
         const auto delayLen = static_cast<std::size_t> (delaySamples);
 
@@ -94,7 +112,7 @@ public:
             for (int ch = 0; ch < active; ++ch)
             {
                 const auto c = static_cast<std::size_t> (ch);
-                const float x = finiteOrZero (dry[ch][n]);
+                const float x = finiteOrZero (dry[ch][offset + n]);
 
                 // Linha de atraso por canal, com uma posição compartilhada.
                 float delayed = x;
@@ -121,13 +139,12 @@ public:
             for (int n = 0; n < length; ++n)
             {
                 const auto i = static_cast<std::size_t> (n);
-                const float w = finiteOrZero (wet[ch][n]);
-                wet[ch][n] = w + fade[i] * (scratch[c * block + i] - w);
+                const float w = finiteOrZero (wet[ch][offset + n]);
+                wet[ch][offset + n] = w + fade[i] * (scratch[c * block + i] - w);
             }
         }
     }
 
-private:
     // Entrada não-finita vira silêncio, senão contaminaria a saída.
     static float finiteOrZero (float x) { return std::isfinite (x) ? x : 0.0f; }
 

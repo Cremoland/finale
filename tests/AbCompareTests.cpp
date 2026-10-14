@@ -106,11 +106,12 @@ int limiterLatency()
 }
 
 // Com compare ligado e wet zerado, a saida tem que ser o dry atrasado pela cadeia inteira.
-void requireAlignedOriginal (int numChannels)
+// Os blocos de processamento (blockSize) podem ser maiores que o maxBlockSize do prepare.
+void requireAlignedOriginal (int numChannels, int maxBlockSize = static_cast<int> (blockSize))
 {
     AbCompare ab;
     ab.setCompare (true);
-    ab.prepare (sampleRate, numChannels, dryDelay, static_cast<int> (blockSize));
+    ab.prepare (sampleRate, numChannels, dryDelay, maxBlockSize);
 
     const std::size_t lat = static_cast<std::size_t> (dryDelay + limiterLatency());
     const std::size_t n = 4096;
@@ -285,4 +286,10 @@ TEST_CASE ("ab: entrada não-finita")
 TEST_CASE ("ab: mono")
 {
     requireAlignedOriginal (1);
+}
+
+TEST_CASE ("ab: bloco maior que o buffer")
+{
+    // Prepara com 64 amostras e processa blocos de 512: o alinhamento tem que se manter.
+    requireAlignedOriginal (2, 64);
 }
