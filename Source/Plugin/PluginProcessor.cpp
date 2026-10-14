@@ -20,6 +20,8 @@ FinaleProcessor::FinaleProcessor() :
     saturationParam = parameters.getRawParameterValue (ParamIDs::saturation);
     widthParam = parameters.getRawParameterValue (ParamIDs::width);
     compareParam = parameters.getRawParameterValue (ParamIDs::compare);
+    assistantParam = parameters.getRawParameterValue (ParamIDs::assistant);
+    targetLufsParam = parameters.getRawParameterValue (ParamIDs::targetLufs);
 }
 
 juce::AudioProcessorValueTreeState::ParameterLayout FinaleProcessor::createParameterLayout()
@@ -54,6 +56,9 @@ juce::AudioProcessorValueTreeState::ParameterLayout FinaleProcessor::createParam
             juce::NormalisableRange<float> (0.0f, 200.0f, 0.1f), 100.0f,
             juce::AudioParameterFloatAttributes().withLabel ("%")),
         std::make_unique<juce::AudioParameterBool> (juce::ParameterID { ParamIDs::compare, 1 }, "Compare", false),
+        // A ordem das opções é permanente: projetos salvos guardam o índice, não o nome.
+        std::make_unique<juce::AudioParameterChoice> (juce::ParameterID { ParamIDs::assistant, 1 }, "Assistant",
+            juce::StringArray { "Off", "Analyze", "Auto", "Freeze" }, 0),
     };
 }
 
@@ -84,6 +89,8 @@ void FinaleProcessor::prepareToPlay (double sampleRate, int samplesPerBlock)
     abCompare.setCeilingDecibels (ceilingParam->load());
     abCompare.setCompare (compareParam->load() > 0.5f);
     abCompare.prepare (sampleRate, channels, dsp::Saturator::latency, maxChunk);
+
+    assistant.prepare (sampleRate);
 }
 
 bool FinaleProcessor::isBusesLayoutSupported (const BusesLayout& layouts) const
@@ -109,6 +116,10 @@ void FinaleProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::Midi
     const float gainDb = gainParam->load();
     const float ceilingDb = ceilingParam->load();
     const bool compare = compareParam->load() > 0.5f;
+
+    assistant.setMode (
+        static_cast<dsp::LoudnessAssistant::Mode> (std::clamp (juce::roundToInt (assistantParam->load()), 0, 3)));
+    assistant.setTargetLufs (targetLufsParam->load());
 
     float* dryBuffers[2] { dryLeft.data(), dryRight.data() };
     float* chunk[2] { nullptr, nullptr };
@@ -142,7 +153,7 @@ void FinaleProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::Midi
         stereoWidth.setWidth (targets.width);
         stereoWidth.process (chunk, channels, n);
 
-        push.setGainDecibels (targets.pushDb);
+        push.setGainDecibels (targets.pushDb + assistant.getCorrectionDb());
         push.process (chunk, channels, n);
 
         limiter.setCeilingDecibels (ceilingDb);
@@ -153,6 +164,10 @@ void FinaleProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::Midi
         outputMomentaryLufs.store (outputMeter.getMomentaryLufs(), std::memory_order_relaxed);
         outputShortTermLufs.store (outputMeter.getShortTermLufs(), std::memory_order_relaxed);
         outputIntegratedLufs.store (outputMeter.getIntegratedLufs(), std::memory_order_relaxed);
+
+        // A malha é fechada na saída, então a correção também compensa o limiter.
+        assistant.update (outputMeter.getShortTermLufs(), n);
+        assistantCorrectionDb.store (assistant.getCorrectionDb(), std::memory_order_relaxed);
 
         // Igualação: o original entra no mesmo LUFS de curto prazo que a saída processada.
         abCompare.setMatchFromLufs (inputMeter.getShortTermLufs(), outputMeter.getShortTermLufs());
