@@ -146,7 +146,7 @@ inline float genreTargetLufs (int genre, float offsetLu)
     else
         pendingCorrectionDb.store (0.0f); // projeto sem correção salva: volta a 0, mesmo numa instância já usada
     ```
-  - (b) Logo depois de `parameters.replaceState (state);`:
+  - (b) Ler `const bool hasManualTarget = state.getChildWithProperty ("id", ParamIDs::manualTarget).isValid();` **antes** de `parameters.replaceState (state);` (o APVTS compartilha a ValueTree e acrescenta o filho que falta durante o replaceState; corrigido na implementação) e, logo depois dele, usar `if (! hasManualTarget)` no lugar da checagem abaixo:
     ```cpp
     // Projetos de antes do #29 não têm o manualTarget: abrem com ele ligado e mantêm o alvo absoluto que tinham.
     if (! state.getChildWithProperty ("id", ParamIDs::manualTarget).isValid())
