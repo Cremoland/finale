@@ -28,6 +28,7 @@ FinaleProcessor::FinaleProcessor() :
     targetLufsParam = parameters.getRawParameterValue (ParamIDs::targetLufs);
     genreParam = parameters.getRawParameterValue (ParamIDs::genre);
     eqParam = parameters.getRawParameterValue (ParamIDs::eq);
+    tonalAnalyzer.setDecaySeconds (dsp::TonalAssistant::analyzerMemorySeconds);
 }
 
 juce::AudioProcessorValueTreeState::ParameterLayout FinaleProcessor::createParameterLayout()
@@ -88,6 +89,7 @@ void FinaleProcessor::prepareToPlay (double sampleRate, int samplesPerBlock)
     maxChunk = std::max (1, samplesPerBlock);
     dryLeft.assign (static_cast<std::size_t> (maxChunk), 0.0f);
     dryRight.assign (static_cast<std::size_t> (maxChunk), 0.0f);
+    dryMono.assign (static_cast<std::size_t> (maxChunk), 0.0f);
 
     const int channels = std::max (1, getTotalNumOutputChannels());
 
@@ -113,6 +115,8 @@ void FinaleProcessor::prepareToPlay (double sampleRate, int samplesPerBlock)
 
     tonalEq.prepare (sampleRate, channels);
     assistant.prepare (sampleRate);
+    tonalAnalyzer.prepare (sampleRate);
+    tonalAssistant.prepare (sampleRate);
 }
 
 bool FinaleProcessor::isBusesLayoutSupported (const BusesLayout& layouts) const
@@ -134,6 +138,14 @@ void FinaleProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::Midi
     if (std::isfinite (pending))
         assistant.setCorrectionDb (pending);
 
+    if (hasPendingTonal.exchange (false, std::memory_order_acquire))
+    {
+        std::array<float, 4> pendingTonal { };
+        for (std::size_t b = 0; b < pendingTonal.size(); ++b)
+            pendingTonal[b] = pendingTonalDb[b].load (std::memory_order_relaxed);
+        tonalAssistant.setCorrectionDb (pendingTonal);
+    }
+
     const int numSamples = buffer.getNumSamples();
     const int channels = std::min (buffer.getNumChannels(), 2);
 
@@ -143,11 +155,16 @@ void FinaleProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::Midi
     const float gainDb = gainParam->load();
     const float ceilingDb = ceilingParam->load();
     const bool compare = compareParam->load() > 0.5f;
-    tonalEq.setGainsDecibels (dsp::genreEqGains (
-        amountParam->load() / 100.0f, juce::roundToInt (genreParam->load()), eqParam->load() / 100.0f));
+    const auto genreGains = dsp::genreEqGains (
+        amountParam->load() / 100.0f, juce::roundToInt (genreParam->load()), eqParam->load() / 100.0f);
+    // A correção tonal segue o mesmo amount × EQ da curva do gênero (0 % de EQ desliga as duas).
+    const auto unit = [] (float v) { return std::isfinite (v) ? std::clamp (v, 0.0f, 1.0f) : 0.0f; };
+    const float tonalScale = unit (amountParam->load() / 100.0f) * unit (eqParam->load() / 100.0f);
 
-    assistant.setMode (
-        static_cast<dsp::LoudnessAssistant::Mode> (std::clamp (juce::roundToInt (assistantParam->load()), 0, 3)));
+    const auto mode
+        = static_cast<dsp::LoudnessAssistant::Mode> (std::clamp (juce::roundToInt (assistantParam->load()), 0, 3));
+    assistant.setMode (mode);
+    tonalAssistant.setMode (mode);
     assistant.setTargetLufs (targetLufsParam->load());
 
     float* dryBuffers[2] { dryLeft.data(), dryRight.data() };
@@ -168,6 +185,25 @@ void FinaleProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::Midi
         }
 
         inputMeter.process (dry, channels, n);
+
+        // Forma tonal do original, antes do EQ: a correção não realimenta a medida.
+        const bool tonalValid = channels > 0 && inputMeter.getShortTermLufs() > dsp::TonalAssistant::inputGateLufs;
+        if (tonalValid)
+        {
+            for (int i = 0; i < n; ++i)
+                dryMono[static_cast<std::size_t> (i)] = channels == 2 ? 0.5f * (dry[0][i] + dry[1][i]) : dry[0][i];
+            tonalAnalyzer.process (dryMono.data(), n);
+        }
+        tonalAssistant.update (tonalAnalyzer.getShapeDb(), tonalValid, n);
+
+        const auto tonal = tonalAssistant.getCorrectionDb();
+        auto eqGains = genreGains;
+        for (std::size_t b = 0; b < eqGains.size(); ++b)
+        {
+            eqGains[b] += tonalScale * tonal[b];
+            tonalCorrectionDb[b].store (tonal[b], std::memory_order_relaxed);
+        }
+        tonalEq.setGainsDecibels (eqGains);
 
         gain.setGainDecibels (gainDb);
         gain.process (chunk, channels, n);
@@ -223,6 +259,15 @@ void FinaleProcessor::getStateInformation (juce::MemoryBlock& destData)
     const float correction = std::isfinite (pending) ? pending : assistantCorrectionDb.load (std::memory_order_relaxed);
     state.setProperty ("assistantCorrectionDb", correction, nullptr);
 
+    // Correção tonal: uma propriedade por banda. A pendente (projeto aberto sem tocar áudio) vale mais.
+    const bool tonalPending = hasPendingTonal.load (std::memory_order_acquire);
+    for (std::size_t b = 0; b < tonalCorrectionDb.size(); ++b)
+    {
+        const float value = tonalPending ? pendingTonalDb[b].load (std::memory_order_relaxed)
+                                         : tonalCorrectionDb[b].load (std::memory_order_relaxed);
+        state.setProperty ("tonalCorrectionDb" + juce::String (static_cast<int> (b)), value, nullptr);
+    }
+
     if (auto xml = state.createXml())
         copyXmlToBinary (*xml, destData);
 }
@@ -235,6 +280,19 @@ void FinaleProcessor::setStateInformation (const void* data, int sizeInBytes)
         if (state.hasProperty ("assistantCorrectionDb"))
             pendingCorrectionDb.store (
                 static_cast<float> (static_cast<double> (state.getProperty ("assistantCorrectionDb"))));
+
+        // Projetos de antes do assistente tonal não têm as propriedades: a correção tonal fica em 0.
+        bool hasTonal = true;
+        for (int b = 0; b < 4; ++b)
+            hasTonal = hasTonal && state.hasProperty ("tonalCorrectionDb" + juce::String (b));
+        if (hasTonal)
+        {
+            for (std::size_t b = 0; b < pendingTonalDb.size(); ++b)
+                pendingTonalDb[b].store (static_cast<float> (static_cast<double> (state.getProperty (
+                                             "tonalCorrectionDb" + juce::String (static_cast<int> (b))))),
+                    std::memory_order_relaxed);
+            hasPendingTonal.store (true, std::memory_order_release);
+        }
 
         parameters.replaceState (state);
     }
