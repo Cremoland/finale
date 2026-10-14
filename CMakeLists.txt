@@ -82,7 +82,8 @@ if(FINALE_BUILD_TESTS)
         tests/SaturatorTests.cpp
         tests/StereoWidthTests.cpp
         tests/MacroTests.cpp
-        tests/AbCompareTests.cpp)
+        tests/AbCompareTests.cpp
+        tests/LoudnessAssistantTests.cpp)
     target_link_libraries(finale_tests PRIVATE finale_dsp Catch2::Catch2WithMain)
     add_test(NAME dsp COMMAND finale_tests)
 endif()

@@ -2,6 +2,7 @@
 
 #include "DSP/AbCompare.h"
 #include "DSP/Gain.h"
+#include "DSP/LoudnessAssistant.h"
 #include "DSP/LoudnessMeter.h"
 #include "DSP/Macro.h"
 #include "DSP/MultibandCompressor.h"
@@ -11,6 +12,8 @@
 
 #include <juce_audio_processors/juce_audio_processors.h>
 
+#include <atomic>
+#include <limits>
 #include <vector>
 
 namespace finale
@@ -28,6 +31,7 @@ inline constexpr auto compression = "compression";
 inline constexpr auto saturation = "saturation";
 inline constexpr auto width = "width";
 inline constexpr auto compare = "compare";
+inline constexpr auto assistant = "assistant";
 } // namespace ParamIDs
 
 class FinaleProcessor : public juce::AudioProcessor
@@ -64,6 +68,9 @@ public:
     float getOutputShortTermLufs() const { return outputShortTermLufs.load (std::memory_order_relaxed); }
     float getOutputIntegratedLufs() const { return outputIntegratedLufs.load (std::memory_order_relaxed); }
 
+    // Correção atual do assistente em dB, para a interface. O editor lê de outra thread, por isso atomic.
+    float getAssistantCorrectionDb() const { return assistantCorrectionDb.load (std::memory_order_relaxed); }
+
 private:
     static juce::AudioProcessorValueTreeState::ParameterLayout createParameterLayout();
 
@@ -88,6 +95,14 @@ private:
     std::atomic<float>* compareParam = nullptr;
     dsp::LoudnessMeter inputMeter; // LUFS do original, para igualar o A/B
     dsp::AbCompare abCompare;
+
+    std::atomic<float>* assistantParam = nullptr;
+    std::atomic<float>* targetLufsParam = nullptr;
+    dsp::LoudnessAssistant assistant;
+    std::atomic<float> assistantCorrectionDb { 0.0f };
+    // Correção lida do projeto, esperando o audio thread aplicá-la (NaN = nada pendente).
+    // Só o processBlock mexe no assistant; o estado chega pela thread de mensagens.
+    std::atomic<float> pendingCorrectionDb { std::numeric_limits<float>::quiet_NaN() };
     // Cópia do original por pedaço, pré-alocada: processBlock não aloca.
     std::vector<float> dryLeft, dryRight;
     int maxChunk = 0;
