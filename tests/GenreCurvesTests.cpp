@@ -26,13 +26,13 @@ void requireEqual (const std::array<float, 4>& a, const std::array<float, 4>& b)
 
 TEST_CASE ("amount 0 é plano")
 {
-    for (int g = 0; g <= 7; ++g)
+    for (int g = 0; g < finale::dsp::numGenres; ++g)
         requireFlat (genreEqGains (0.0f, g, 1.0f));
 }
 
 TEST_CASE ("amount 100 % dá a curva do gênero")
 {
-    for (int g = 0; g <= 7; ++g)
+    for (int g = 0; g < finale::dsp::numGenres; ++g)
     {
         const auto gains = genreEqGains (1.0f, g, 1.0f);
         for (size_t b = 0; b < 4; ++b)

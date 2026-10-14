@@ -60,6 +60,19 @@ if(FINALE_BUILD_PLUGIN)
             juce::juce_recommended_config_flags
             juce::juce_recommended_lto_flags
             juce::juce_recommended_warning_flags)
+
+    # Ferramenta offline: mede as referências e regenera Source/DSP/GenreCurveTable.h.
+    juce_add_console_app (finale_curvegen PRODUCT_NAME "finale_curvegen")
+    target_sources (finale_curvegen PRIVATE tools/curvegen/main.cpp)
+    target_include_directories (finale_curvegen PRIVATE Source tools)
+    target_compile_definitions (finale_curvegen PRIVATE JUCE_WEB_BROWSER=0 JUCE_USE_CURL=0)
+    target_link_libraries (finale_curvegen
+        PRIVATE
+            finale_dsp
+            juce::juce_audio_formats
+            juce::juce_core
+            juce::juce_recommended_config_flags
+            juce::juce_recommended_warning_flags)
 endif()
 
 if(FINALE_BUILD_TESTS)
@@ -85,7 +98,11 @@ if(FINALE_BUILD_TESTS)
         tests/GenreCurvesTests.cpp
         tests/AbCompareTests.cpp
         tests/LoudnessAssistantTests.cpp
-        tests/TonalEqTests.cpp)
+        tests/TonalEqTests.cpp
+        tests/BandAnalyzerTests.cpp
+        tests/CurveGenTests.cpp)
+    target_include_directories(finale_tests PRIVATE tools)
+    target_compile_definitions(finale_tests PRIVATE FINALE_SOURCE_DIR="${CMAKE_SOURCE_DIR}")
     target_link_libraries(finale_tests PRIVATE finale_dsp Catch2::Catch2WithMain)
     add_test(NAME dsp COMMAND finale_tests)
 endif()
