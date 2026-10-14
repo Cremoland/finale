@@ -12,10 +12,12 @@ namespace finale::dsp
 // Alargador estéreo em mid/side. A codificação m = (l+r)/2 e s = (l−r)/2 é invertível
 // exatamente: l = m + s, r = m − s (técnica M/S atribuída a Blumlein, patente de 1931). Como o mid
 // passa intacto, o centro (voz, bumbo, baixo) nunca muda; só o side é reescalado.
-// O side é dividido em grave e agudo por um passa-alta de 120 Hz (RBJ Audio EQ Cookbook,
-// Q = 1/√2, Butterworth). O agudo recebe o ganho w; o grave sobe até 1 e cai a zero em
-// w = 2, ficando mono. Assim o grave nunca alarga a imagem, que é o que os masters
-// costumam precisar.
+// O side é dividido em grave e agudo por dois passa-altas de 120 Hz em cascata (RBJ Audio EQ
+// Cookbook, Q = 1/√2, Butterworth em cada estágio). Dois estágios iguais formam um
+// Linkwitz-Riley de 4ª ordem, que atenua o grave bem mais que um único filtro de 2ª ordem:
+// com um só, 60 Hz caía apenas 6 dB e o grave ainda alargava a imagem. O agudo recebe o
+// ganho w; o grave sobe até 1 e cai a zero em w = 2, ficando mono.
+// Intenção de design (escolha de projeto, não medida): manter o grave no centro da imagem.
 class StereoWidth
 {
 public:
@@ -28,7 +30,8 @@ public:
     {
         // shortcut: corte fixo em 120 Hz, sem parâmetro para o usuário.
         highPass = makeHighPass (sampleRate, 120.0, std::numbers::sqrt2 / 2.0);
-        highPassState = { };
+        highPassState[0] = { };
+        highPassState[1] = { };
 
         // Suavização de 20 ms, começando no alvo atual para não haver rampa ao carregar.
         smoothing = std::exp (-1.0 / (0.02 * sampleRate));
@@ -56,7 +59,8 @@ public:
             const double m = (l + r) / 2.0;
             const double s = (l - r) / 2.0;
 
-            const double sHigh = highPassState.process (highPass, s);
+            // Dois estágios em cascata, cada um com o próprio estado (ver o comentário do topo).
+            const double sHigh = highPassState[1].process (highPass, highPassState[0].process (highPass, s));
             const double sLow = s - sHigh;
 
             // shortcut: mapeamento linear do ganho do grave (sobe até 1 e cai a 0). Sem
@@ -66,8 +70,11 @@ public:
 
             const double s2 = lowGain * sLow + highGain * sHigh;
 
-            left[i] = static_cast<float> (m + s2);
-            right[i] = static_cast<float> (m - s2);
+            // Saída não-finita vira silêncio, pela mesma regra da entrada: o bloco fica autocontido.
+            const double outL = m + s2;
+            const double outR = m - s2;
+            left[i] = std::isfinite (outL) ? static_cast<float> (outL) : 0.0f;
+            right[i] = std::isfinite (outR) ? static_cast<float> (outR) : 0.0f;
         }
     }
 
@@ -76,7 +83,7 @@ private:
     double smoothedWidth = 1.0;
     double smoothing = 0.0;
     BiquadCoefficients highPass { };
-    BiquadState highPassState { };
+    BiquadState highPassState[2] { };
 };
 
 } // namespace finale::dsp

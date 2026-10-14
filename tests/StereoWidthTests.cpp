@@ -149,8 +149,15 @@ TEST_CASE ("largura 100 % é identidade")
     sw.prepare (fs);
     processRange (sw, left, right, 0, oneSecond, fixedBlocks);
 
-    REQUIRE (maxAbsDiff (left, inL) <= 1e-6);
-    REQUIRE (maxAbsDiff (right, inR) <= 1e-6);
+    std::size_t differing = 0;
+    for (std::size_t n = 0; n < oneSecond; ++n)
+    {
+        if (left[n] != inL[n])
+            ++differing;
+        if (right[n] != inR[n])
+            ++differing;
+    }
+    REQUIRE (differing == 0);
 }
 
 TEST_CASE ("largura 0 % vira mono")
@@ -193,6 +200,39 @@ TEST_CASE ("mid nunca muda")
     }
 }
 
+TEST_CASE ("mid nunca muda, também com side não nulo")
+{
+    const std::vector<float> mid = sine (1000.0, 0.3, fs, oneSecond);
+    std::mt19937 gen (3);
+    std::uniform_real_distribution<double> dist (-0.2, 0.2);
+
+    std::vector<float> inL (oneSecond);
+    std::vector<float> inR (oneSecond);
+    for (std::size_t n = 0; n < oneSecond; ++n)
+    {
+        const double side = dist (gen);
+        inL[n] = static_cast<float> (static_cast<double> (mid[n]) + side);
+        inR[n] = static_cast<float> (static_cast<double> (mid[n]) - side);
+    }
+
+    for (const float width : { 0.0f, 0.5f, 1.5f, 2.0f })
+    {
+        std::vector<float> left = inL;
+        std::vector<float> right = inR;
+
+        StereoWidth sw;
+        sw.setWidth (width);
+        sw.prepare (fs);
+        processRange (sw, left, right, 0, oneSecond, fixedBlocks);
+
+        std::vector<float> outMid (oneSecond);
+        for (std::size_t n = 0; n < oneSecond; ++n)
+            outMid[n] = static_cast<float> ((static_cast<double> (left[n]) + static_cast<double> (right[n])) / 2.0);
+
+        REQUIRE (maxAbsDiff (outMid, mid) <= 1e-6);
+    }
+}
+
 TEST_CASE ("200 % dobra o side nos agudos")
 {
     REQUIRE (sideChangeDb (fs, 5000.0, 0.25, 2.0f) == Catch::Approx (6.02).margin (0.1));
@@ -201,6 +241,8 @@ TEST_CASE ("200 % dobra o side nos agudos")
 TEST_CASE ("200 % leva o grave para mono")
 {
     REQUIRE (sideChangeDb (fs, 30.0, 0.25, 2.0f) <= -12.0);
+    REQUIRE (sideChangeDb (fs, 60.0, 0.25, 2.0f) <= -12.0);
+    REQUIRE (sideChangeDb (fs, 150.0, 0.25, 2.0f) > 0.0);
 }
 
 TEST_CASE ("mudança de largura sem estalo")
