@@ -289,7 +289,7 @@ void FinaleProcessor::setStateInformation (const void* data, int sizeInBytes)
 {
     if (auto xml = getXmlFromBinary (data, sizeInBytes); xml && xml->hasTagName (parameters.state.getType()))
     {
-        const auto state = juce::ValueTree::fromXml (*xml);
+        auto state = juce::ValueTree::fromXml (*xml);
         if (state.hasProperty ("assistantCorrectionDb"))
             pendingCorrectionDb.store (
                 static_cast<float> (static_cast<double> (state.getProperty ("assistantCorrectionDb"))));
@@ -314,14 +314,29 @@ void FinaleProcessor::setStateInformation (const void* data, int sizeInBytes)
         }
         hasPendingTonal.store (true, std::memory_order_release);
 
-        // Lido antes do replaceState: depois dele, o APVTS acrescenta o filho manualTarget no mesmo nó de state.
-        const bool hasManualTarget = state.getChildWithProperty ("id", ParamIDs::manualTarget).isValid();
-        parameters.replaceState (state);
+        // Parâmetros que o projeto não tem (projeto antigo) entram com o padrão, não com o valor do projeto anterior
+        // desta instância. Exceção: projetos de antes do #29 abrem com o alvo manual ligado e mantêm o alvo absoluto
+        // que tinham.
+        for (auto* param : getParameters())
+        {
+            auto* ranged = dynamic_cast<juce::RangedAudioParameter*> (param);
+            if (ranged == nullptr)
+                continue;
 
-        // Projetos de antes do #29 não têm o manualTarget: abrem com ele ligado e mantêm o alvo absoluto que tinham.
-        if (!hasManualTarget)
-            if (auto* manual = parameters.getParameter (ParamIDs::manualTarget))
-                manual->setValueNotifyingHost (1.0f);
+            const juce::String id = ranged->getParameterID();
+            if (state.getChildWithProperty ("id", id).isValid())
+                continue;
+
+            juce::ValueTree child ("PARAM");
+            child.setProperty ("id", id, nullptr);
+            const float value = juce::String (id) == ParamIDs::manualTarget
+                ? 1.0f
+                : ranged->convertFrom0to1 (ranged->getDefaultValue());
+            child.setProperty ("value", value, nullptr);
+            state.appendChild (child, nullptr);
+        }
+
+        parameters.replaceState (state);
     }
 }
 

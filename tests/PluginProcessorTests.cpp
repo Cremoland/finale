@@ -516,3 +516,31 @@ TEST_CASE ("estado: projeto sem correção de loudness zera a correção")
     targetAfterBlock (a);
     CHECK (a.getAssistantCorrectionDb() == 0.0f);
 }
+
+TEST_CASE ("estado: projeto antigo numa instância reaproveitada usa os padrões")
+{
+    const juce::ScopedJuceInitialiser_GUI juceInit;
+    FinaleProcessor a;
+    setParam (a, finale::ParamIDs::lufsOffset, -2.0f);
+    setParam (a, finale::ParamIDs::eq, 40.0f);
+    setParam (a, finale::ParamIDs::targetLufs, -12.0f);
+    juce::MemoryBlock fresh;
+    a.getStateInformation (fresh);
+
+    // Projeto antigo: sem lufsOffset, manualTarget nem eq (eq é de antes do #23).
+    const auto oldState = withoutParts (
+        fresh, { finale::ParamIDs::lufsOffset, finale::ParamIDs::manualTarget, finale::ParamIDs::eq }, { });
+
+    // Instância que já tinha outro projeto aberto: o antigo não pode herdar os valores dele.
+    FinaleProcessor r;
+    setParam (r, finale::ParamIDs::lufsOffset, 3.0f);
+    setParam (r, finale::ParamIDs::eq, 70.0f);
+    r.setStateInformation (oldState.getData(), static_cast<int> (oldState.getSize()));
+
+    CHECK (rawParam (r, finale::ParamIDs::lufsOffset) == Approx (0.0f));
+    CHECK (rawParam (r, finale::ParamIDs::eq) == Approx (100.0f));
+    CHECK (rawParam (r, finale::ParamIDs::manualTarget) == Approx (1.0f));
+    CHECK (rawParam (r, finale::ParamIDs::targetLufs) == Approx (-12.0f));
+    r.prepareToPlay (48000.0, 512);
+    CHECK (targetAfterBlock (r) == Approx (-12.0f).margin (1.0e-4));
+}
