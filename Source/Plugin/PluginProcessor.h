@@ -2,12 +2,14 @@
 
 #include "DSP/AbCompare.h"
 #include "DSP/Gain.h"
+#include "DSP/GenreCurves.h"
 #include "DSP/LoudnessAssistant.h"
 #include "DSP/LoudnessMeter.h"
 #include "DSP/Macro.h"
 #include "DSP/MultibandCompressor.h"
 #include "DSP/Saturator.h"
 #include "DSP/StereoWidth.h"
+#include "DSP/TonalEq.h"
 #include "DSP/TruePeakLimiter.h"
 
 #include <juce_audio_processors/juce_audio_processors.h>
@@ -32,6 +34,7 @@ inline constexpr auto saturation = "saturation";
 inline constexpr auto width = "width";
 inline constexpr auto compare = "compare";
 inline constexpr auto assistant = "assistant";
+inline constexpr auto eq = "eq";
 } // namespace ParamIDs
 
 class FinaleProcessor : public juce::AudioProcessor
@@ -77,6 +80,9 @@ private:
     std::atomic<float>* gainParam = nullptr;
     dsp::Gain gain;
     std::atomic<float>* amountParam = nullptr;
+    std::atomic<float>* genreParam = nullptr;
+    std::atomic<float>* eqParam = nullptr;
+    dsp::TonalEq tonalEq;
     std::atomic<float>* compressionParam = nullptr;
     dsp::MultibandCompressor compressor;
     std::atomic<float>* characterParam = nullptr;

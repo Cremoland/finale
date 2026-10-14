@@ -24,6 +24,8 @@ FinaleProcessor::FinaleProcessor() :
     compareParam = parameters.getRawParameterValue (ParamIDs::compare);
     assistantParam = parameters.getRawParameterValue (ParamIDs::assistant);
     targetLufsParam = parameters.getRawParameterValue (ParamIDs::targetLufs);
+    genreParam = parameters.getRawParameterValue (ParamIDs::genre);
+    eqParam = parameters.getRawParameterValue (ParamIDs::eq);
 }
 
 juce::AudioProcessorValueTreeState::ParameterLayout FinaleProcessor::createParameterLayout()
@@ -61,6 +63,10 @@ juce::AudioProcessorValueTreeState::ParameterLayout FinaleProcessor::createParam
         // A ordem das opções é permanente: projetos salvos guardam o índice, não o nome.
         std::make_unique<juce::AudioParameterChoice> (juce::ParameterID { ParamIDs::assistant, 1 }, "Assistant",
             juce::StringArray { "Off", "Analyze", "Auto", "Freeze" }, 0),
+        // EQ é uma quantidade que escala o amount, como compressão e saturação.
+        std::make_unique<juce::AudioParameterFloat> (juce::ParameterID { ParamIDs::eq, 1 }, "EQ",
+            juce::NormalisableRange<float> (0.0f, 100.0f, 0.1f), 100.0f,
+            juce::AudioParameterFloatAttributes().withLabel ("%")),
     };
 }
 
@@ -92,6 +98,7 @@ void FinaleProcessor::prepareToPlay (double sampleRate, int samplesPerBlock)
     abCompare.setCompare (compareParam->load() > 0.5f);
     abCompare.prepare (sampleRate, channels, dsp::Saturator::latency, maxChunk);
 
+    tonalEq.prepare (sampleRate, channels);
     assistant.prepare (sampleRate);
 }
 
@@ -123,6 +130,8 @@ void FinaleProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::Midi
     const float gainDb = gainParam->load();
     const float ceilingDb = ceilingParam->load();
     const bool compare = compareParam->load() > 0.5f;
+    tonalEq.setGainsDecibels (dsp::genreEqGains (
+        amountParam->load() / 100.0f, juce::roundToInt (genreParam->load()), eqParam->load() / 100.0f));
 
     assistant.setMode (
         static_cast<dsp::LoudnessAssistant::Mode> (std::clamp (juce::roundToInt (assistantParam->load()), 0, 3)));
@@ -149,6 +158,8 @@ void FinaleProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::Midi
 
         gain.setGainDecibels (gainDb);
         gain.process (chunk, channels, n);
+
+        tonalEq.process (chunk, channels, n);
 
         compressor.setRatio (targets.ratio);
         compressor.process (chunk, channels, n);
