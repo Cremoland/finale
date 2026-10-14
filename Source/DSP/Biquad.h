@@ -47,6 +47,50 @@ inline BiquadCoefficients makeAllPass (double fs, double f0, double q)
     return { (1.0 - alpha) / a0, -2.0 * cosW0 / a0, (1.0 + alpha) / a0, -2.0 * cosW0 / a0, (1.0 - alpha) / a0 };
 }
 
+// Peaking EQ do RBJ Audio EQ Cookbook: ganho gainDb em f0, unitário longe de f0.
+// A = 10^(gainDb/40); com gainDb = 0 os coeficientes dão exatamente a identidade.
+inline BiquadCoefficients makePeak (double fs, double f0, double q, double gainDb)
+{
+    const double a = std::pow (10.0, gainDb / 40.0);
+    const double w0 = 2.0 * std::numbers::pi * f0 / fs;
+    const double cosW0 = std::cos (w0);
+    const double alpha = std::sin (w0) / (2.0 * q);
+    const double a0 = 1.0 + alpha / a;
+
+    return { (1.0 + alpha * a) / a0, -2.0 * cosW0 / a0, (1.0 - alpha * a) / a0, -2.0 * cosW0 / a0,
+        (1.0 - alpha / a) / a0 };
+}
+
+// Shelf de graves do RBJ Audio EQ Cookbook: ganho gainDb abaixo de f0, unitário acima.
+inline BiquadCoefficients makeLowShelf (double fs, double f0, double q, double gainDb)
+{
+    const double a = std::pow (10.0, gainDb / 40.0);
+    const double w0 = 2.0 * std::numbers::pi * f0 / fs;
+    const double cosW0 = std::cos (w0);
+    const double alpha = std::sin (w0) / (2.0 * q);
+    const double twoSqrtAAlpha = 2.0 * std::sqrt (a) * alpha;
+    const double a0 = (a + 1.0) + (a - 1.0) * cosW0 + twoSqrtAAlpha;
+
+    return { a * ((a + 1.0) - (a - 1.0) * cosW0 + twoSqrtAAlpha) / a0, 2.0 * a * ((a - 1.0) - (a + 1.0) * cosW0) / a0,
+        a * ((a + 1.0) - (a - 1.0) * cosW0 - twoSqrtAAlpha) / a0, -2.0 * ((a - 1.0) + (a + 1.0) * cosW0) / a0,
+        ((a + 1.0) + (a - 1.0) * cosW0 - twoSqrtAAlpha) / a0 };
+}
+
+// Shelf de agudos do RBJ Audio EQ Cookbook: ganho gainDb acima de f0, unitário abaixo.
+inline BiquadCoefficients makeHighShelf (double fs, double f0, double q, double gainDb)
+{
+    const double a = std::pow (10.0, gainDb / 40.0);
+    const double w0 = 2.0 * std::numbers::pi * f0 / fs;
+    const double cosW0 = std::cos (w0);
+    const double alpha = std::sin (w0) / (2.0 * q);
+    const double twoSqrtAAlpha = 2.0 * std::sqrt (a) * alpha;
+    const double a0 = (a + 1.0) - (a - 1.0) * cosW0 + twoSqrtAAlpha;
+
+    return { a * ((a + 1.0) + (a - 1.0) * cosW0 + twoSqrtAAlpha) / a0, -2.0 * a * ((a - 1.0) + (a + 1.0) * cosW0) / a0,
+        a * ((a + 1.0) + (a - 1.0) * cosW0 - twoSqrtAAlpha) / a0, 2.0 * ((a - 1.0) - (a + 1.0) * cosW0) / a0,
+        ((a + 1.0) - (a - 1.0) * cosW0 - twoSqrtAAlpha) / a0 };
+}
+
 // Estado de um biquad: as duas últimas entradas e saídas.
 struct BiquadState
 {
