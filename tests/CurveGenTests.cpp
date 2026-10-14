@@ -131,3 +131,21 @@ TEST_CASE ("arredonda para 0.1 dB")
     REQUIRE (result.table[trap][0] == 0.1f);
     REQUIRE (result.table[pop][0] == -0.1f);
 }
+
+TEST_CASE ("curvas: gênero não medido não interfere")
+{
+    // Viés = média da tabela atual só dos gêneros medidos (Trap e Pop: (4 + 0) / 2 = 2), não dos 8.
+    auto current = zeros();
+    current[trap][0] = 4.0f;
+    current[pop][0] = 0.0f;
+    current[7][0] = 10.0f; // Rock, sem referência
+    Shapes shapes;
+    shapes[trap] = std::array<float, 4> { 1.0f, 0.0f, 0.0f, 0.0f };
+    shapes[pop] = std::array<float, 4> { -1.0f, 0.0f, 0.0f, 0.0f };
+
+    const auto result = computeCurves (current, shapes);
+
+    REQUIRE (result.table[trap][0] == 3.0f);
+    REQUIRE (result.table[pop][0] == 1.0f);
+    REQUIRE (result.table[7][0] == 10.0f);
+}

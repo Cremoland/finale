@@ -32,6 +32,9 @@ using Shape = std::array<float, 4>;
 // Blocos de 65536 amostras: a memória fica limitada mesmo com arquivos longos.
 constexpr int chunkSize = 65536;
 
+// A banda mais alta vai de 7 kHz até 20 kHz (ou 0.45·fs); abaixo de 32 kHz ela fica estreita demais.
+constexpr double minSampleRate = 32000.0;
+
 // Lê o arquivo inteiro e devolve a forma tonal; nullopt (com aviso) se o arquivo não servir.
 std::optional<Shape> measureFile (const juce::File& file, juce::AudioFormatManager& formats)
 {
@@ -41,6 +44,13 @@ std::optional<Shape> measureFile (const juce::File& file, juce::AudioFormatManag
     if (reader == nullptr || reader->sampleRate <= 0.0 || reader->numChannels == 0)
     {
         std::cout << "aviso: " << name.toRawUTF8() << " não pôde ser lido; arquivo pulado\n";
+        return std::nullopt;
+    }
+
+    if (reader->sampleRate < minSampleRate)
+    {
+        std::cout << "aviso: " << name.toRawUTF8() << ": taxa de amostragem de "
+                  << static_cast<int> (reader->sampleRate) << " Hz é baixa demais (mínimo 32 kHz); arquivo pulado\n";
         return std::nullopt;
     }
 
@@ -80,7 +90,9 @@ std::optional<Shape> measureFile (const juce::File& file, juce::AudioFormatManag
     const bool isUsableShape = std::any_of (shape.begin(), shape.end(), [] (float v) { return v != 0.0f; });
     if (!finite || !isUsableShape)
     {
-        std::cout << "aviso: " << name.toRawUTF8() << " sem energia suficiente; arquivo pulado\n";
+        std::cout
+            << "aviso: " << name.toRawUTF8()
+            << " sem energia útil em alguma banda (silêncio, mono invertido ou só graves/agudos); arquivo pulado\n";
         return std::nullopt;
     }
     return shape;
@@ -112,6 +124,14 @@ int main (int argc, char* argv[])
     juce::AudioFormatManager formats;
     formats.registerBasicFormats();
 
+    for (const juce::File& dir : referencesDir.findChildFiles (juce::File::findDirectories, false))
+    {
+        const bool known = std::any_of (genreFolders.begin(), genreFolders.end(),
+            [&dir] (const char* name) { return dir.getFileName().equalsIgnoreCase (name); });
+        if (!known)
+            std::cout << "pasta desconhecida, ignorada: " << dir.getFileName().toRawUTF8() << "\n";
+    }
+
     std::array<std::optional<Shape>, 8> shapes;
     std::array<int, 8> fileCounts { };
 
@@ -123,6 +143,10 @@ int main (int argc, char* argv[])
 
         if (folder.isDirectory())
         {
+            if (folder.findChildFiles (juce::File::findDirectories, false).size() > 0)
+                std::cout << "aviso: subpastas em " << genreNames[g]
+                          << " não são lidas; coloque os arquivos direto na pasta do gênero\n";
+
             for (const juce::File& file : folder.findChildFiles (juce::File::findFiles, false))
             {
                 const juce::String ext = file.getFileExtension().toLowerCase();

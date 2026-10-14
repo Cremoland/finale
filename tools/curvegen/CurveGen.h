@@ -48,8 +48,9 @@ inline float round1 (float v)
     return r == 0.0f ? 0.0f : r;
 }
 
-// Com 2 ou mais gêneros medidos, cada curva medida vira o viés comum da tabela atual
-// mais o desvio da forma em relação à média das formas medidas, limitado a ±6 dB.
+// Com 2 ou mais gêneros medidos, cada curva medida vira o viés comum da tabela atual (média só dos
+// gêneros medidos, para que a tabela não dependa de quais gêneros têm referência) mais o desvio da forma
+// em relação à média das formas medidas, limitado a ±6 dB. Gêneros sem referência não mudam.
 inline CurveResult computeCurves (
     const CurveTable& current, const std::array<std::optional<std::array<float, 4>>, 8>& measuredShapes)
 {
@@ -69,13 +70,22 @@ inline CurveResult computeCurves (
 
     std::array<float, 4> currentMean { };
     std::array<float, 4> shapeMean { };
+    std::string missingNames;
     for (std::size_t g = 0; g < 8; ++g)
     {
-        for (std::size_t b = 0; b < 4; ++b)
-            currentMean[b] += current[g][b] / 8.0f;
         if (measuredShapes[g])
+        {
             for (std::size_t b = 0; b < 4; ++b)
+            {
+                currentMean[b] += current[g][b] / static_cast<float> (measured);
                 shapeMean[b] += (*measuredShapes[g])[b] / static_cast<float> (measured);
+            }
+        }
+        else
+        {
+            missingNames += (missingNames.empty() ? "" : ", ");
+            missingNames += genreNames[g];
+        }
     }
 
     std::string changedNames;
@@ -105,6 +115,8 @@ inline CurveResult computeCurves (
     result.changed = changedCount > 0;
     result.message = result.changed ? "Curvas atualizadas: " + changedNames + "."
                                     : "Nenhuma curva mudou (" + std::to_string (measured) + " gêneros medidos).";
+    if (!missingNames.empty())
+        result.message += " Sem referências (mantidos): " + missingNames + ".";
     return result;
 }
 
@@ -119,7 +131,9 @@ inline std::string writeCurveTableHeader (const CurveTable& table)
     };
 
     std::string out;
-    out += "// Gerado por tools/curvegen (finale_curvegen); edite à mão só para ajuste por ouvido.\n";
+    out += "// Gerado por tools/curvegen (finale_curvegen). Regenerar sobrescreve os gêneros medidos; a média deles "
+           "por banda\n";
+    out += "// (o viés comum) é preservada, então é ela que se ajusta por ouvido.\n";
     out += "#pragma once\n";
     out += "\n";
     out += "namespace finale::dsp\n";

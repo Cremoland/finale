@@ -1,4 +1,5 @@
-// Gerado por tools/curvegen (finale_curvegen); edite à mão só para ajuste por ouvido.
+// Gerado por tools/curvegen (finale_curvegen). Regenerar sobrescreve os gêneros medidos; a média deles por banda
+// (o viés comum) é preservada, então é ela que se ajusta por ouvido.
 #pragma once
 
 namespace finale::dsp
