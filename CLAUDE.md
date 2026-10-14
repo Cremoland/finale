@@ -12,7 +12,7 @@ Cadeia de áudio planejada: EQ tonal → compressão 3 bandas → saturação �
 
 - `Source/DSP/`: processamento de áudio em C++ puro, **sem JUCE**. Todo algoritmo novo mora aqui e tem teste.
 - `Source/Plugin/`: integração com o JUCE (processor, parâmetros, estado, editor).
-- `tests/`: testes Catch2 do DSP.
+- `tests/`: testes Catch2 do DSP e, em `PluginProcessorTests.cpp`, da integração no processor.
 - `tools/`: ferramentas offline (ex: gerar curvas de gênero a partir de referências).
 - `docs/decisoes.md`: fonte da verdade das decisões.
 - Nome do produto e do estúdio ficam **só** no topo do `CMakeLists.txt`. Nunca escreva "Finale" ou "Cremoland" à mão no código; use `JucePlugin_Name`.
