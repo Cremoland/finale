@@ -20,4 +20,28 @@ cmake --build build --config Release --parallel
 ctest --test-dir build -C Release --output-on-failure
 ```
 
+## Gerar as curvas de referência
+
+Os WAVs de referência ficam só na sua máquina, numa pasta `references/` na raiz do repo (já ignorada pelo git), com uma subpasta por gênero:
+
+```
+references/
+  Trap/
+  Rap-Boom bap/
+  Lo-fi/
+  Funk BR/
+  House/
+  EDM/
+  Pop/
+  Rock/
+```
+
+Aceita WAV, AIFF e FLAC (MP3 não). Precisa de pelo menos 2 gêneros com arquivos. Depois, a partir da raiz do repo:
+
+```
+build\Release\finale_curvegen.exe
+```
+
+A ferramenta regenera `Source/DSP/GenreCurveTable.h` (só se algo mudou). Depois, recompile o plugin. Outros caminhos: `finale_curvegen <pastaDeReferencias> <arquivoDeSaida>`.
+
 Pra testar na DAW, copie `build/finale_plugin_artefacts/Release/VST3/Finale.vst3` para `C:\Program Files\Common Files\VST3\` e reescaneie os plugins. Cada PR também gera um build pronto pra baixar na aba **Actions** do GitHub.

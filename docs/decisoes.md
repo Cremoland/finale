@@ -25,7 +25,7 @@ Plugin de masterização "de um knob" no estilo Soundgoodizer, com assistente qu
 - **Loudness:** alvo por gênero (ex: Lo-fi −12, Pop −9, Funk/EDM −7 LUFS), teto −1 dBTP, ajustáveis
 - **A/B com volume igualado** + medidor de LUFS (atual vs alvo)
 - **Qualidade:** crossovers Linkwitz-Riley (latência zero) + oversampling 2x na saturação; o limiter detecta true peak com interpolação 4x inspirada na ITU-R BS.1770-4 (coeficientes gerados, não a tabela da norma), porque pega os picos entre amostras como os medidores de dBTP, com menos CPU que rodar o limiter em 2x (decidido 13/10)
-- **Curvas de referência:** ferramenta no repo analisa WAVs de referência e gera JSON por gênero. WAVs ficam só na máquina de cada um, nunca no repo.
+- **Curvas de referência:** `finale_curvegen` (`tools/curvegen/`) lê `references/<pasta do gênero>/` com WAV, AIFF ou FLAC (MP3 não entra) e gera `Source/DSP/GenreCurveTable.h`. É um header C++, não JSON, para o plugin não precisar de parser. Pastas: `Trap`, `Rap-Boom bap`, `Lo-fi`, `Funk BR`, `House`, `EDM`, `Pop`, `Rock`. As referências definem a diferença entre os gêneros; a tabela atual define o viés comum. Precisa de pelo menos 2 gêneros com referência; cada curva fica limitada a ±6 dB. WAVs ficam só na máquina de cada um, nunca no repo. (decidido 14/10)
 
 ## Interface
 

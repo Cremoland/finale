@@ -4,7 +4,7 @@
 namespace finale::dsp
 {
 
-// shortcut: curvas à mão; a ferramenta de referências (#22) vai regenerar esta tabela
+// shortcut: valores iniciais à mão; regenere com finale_curvegen (README) e ajuste o viés comum por ouvido
 // Ordem das linhas = ordem permanente das opções do parâmetro genre (Trap, Rap/Boom bap, Lo-fi, Funk BR, House, EDM,
 // Pop, Rock). Ordem das colunas (bandas do TonalEq): low shelf 90 Hz, peak 300 Hz, peak 3 kHz, high shelf 10 kHz.
 // Valores em dB.

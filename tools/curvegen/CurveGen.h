@@ -125,7 +125,8 @@ inline std::string writeCurveTableHeader (const CurveTable& table)
     out += "namespace finale::dsp\n";
     out += "{\n";
     out += "\n";
-    out += "// shortcut: curvas à mão; a ferramenta de referências (#22) vai regenerar esta tabela\n";
+    out += "// shortcut: valores iniciais à mão; regenere com finale_curvegen (README) e ajuste o viés comum por "
+           "ouvido\n";
     out += "// Ordem das linhas = ordem permanente das opções do parâmetro genre (Trap, Rap/Boom bap, Lo-fi, Funk BR, "
            "House, EDM,\n";
     out += "// Pop, Rock). Ordem das colunas (bandas do TonalEq): low shelf 90 Hz, peak 300 Hz, peak 3 kHz, high shelf "
