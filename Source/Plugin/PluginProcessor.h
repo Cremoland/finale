@@ -39,6 +39,8 @@ inline constexpr auto width = "width";
 inline constexpr auto compare = "compare";
 inline constexpr auto assistant = "assistant";
 inline constexpr auto eq = "eq";
+inline constexpr auto lufsOffset = "lufsOffset";
+inline constexpr auto manualTarget = "manualTarget";
 } // namespace ParamIDs
 
 class FinaleProcessor : public juce::AudioProcessor
@@ -77,6 +79,9 @@ public:
 
     // Correção atual do assistente em dB, para a interface. O editor lê de outra thread, por isso atomic.
     float getAssistantCorrectionDb() const { return assistantCorrectionDb.load (std::memory_order_relaxed); }
+
+    // Alvo de loudness em uso (gênero + ajuste, ou o manual), para a interface. O editor lê de outra thread.
+    float getLoudnessTargetLufs() const { return loudnessTargetLufs.load (std::memory_order_relaxed); }
 
     // Correção tonal atual do assistente em dB por banda (90 Hz, 300 Hz, 3 kHz, 10 kHz), antes da escala de
     // amount e EQ. O editor lê de outra thread, por isso atomic.
@@ -118,6 +123,9 @@ private:
 
     std::atomic<float>* assistantParam = nullptr;
     std::atomic<float>* targetLufsParam = nullptr;
+    std::atomic<float>* lufsOffsetParam = nullptr;
+    std::atomic<float>* manualTargetParam = nullptr;
+    std::atomic<float> loudnessTargetLufs { -9.0f };
     dsp::LoudnessAssistant assistant;
     std::atomic<float> assistantCorrectionDb { 0.0f };
     // Correção lida do projeto, esperando o audio thread aplicá-la (NaN = nada pendente).

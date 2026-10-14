@@ -100,7 +100,8 @@ TEST_CASE ("parâmetros: IDs e padrões permanentes")
         { finale::ParamIDs::genre, 6.0f }, { finale::ParamIDs::character, 0.0f },
         { finale::ParamIDs::compression, 100.0f }, { finale::ParamIDs::saturation, 100.0f },
         { finale::ParamIDs::width, 100.0f }, { finale::ParamIDs::compare, 0.0f }, { finale::ParamIDs::assistant, 0.0f },
-        { finale::ParamIDs::eq, 100.0f } };
+        { finale::ParamIDs::eq, 100.0f }, { finale::ParamIDs::lufsOffset, 0.0f },
+        { finale::ParamIDs::manualTarget, 0.0f } };
 
     CHECK (p.getParameters().size() == static_cast<int> (expected.size()));
     for (const auto& e : expected)
@@ -232,6 +233,8 @@ TEST_CASE ("estado: parâmetros salvos e restaurados")
     setParam (a, finale::ParamIDs::ceiling, -2.5f);
     setParam (a, finale::ParamIDs::width, 150.0f);
     setParam (a, finale::ParamIDs::compare, 1.0f);
+    setParam (a, finale::ParamIDs::lufsOffset, -2.0f);
+    setParam (a, finale::ParamIDs::manualTarget, 1.0f);
 
     juce::MemoryBlock state;
     a.getStateInformation (state);
@@ -241,7 +244,8 @@ TEST_CASE ("estado: parâmetros salvos e restaurados")
     for (const char* id : { finale::ParamIDs::gain, finale::ParamIDs::amount, finale::ParamIDs::ceiling,
              finale::ParamIDs::targetLufs, finale::ParamIDs::genre, finale::ParamIDs::character,
              finale::ParamIDs::compression, finale::ParamIDs::saturation, finale::ParamIDs::width,
-             finale::ParamIDs::compare, finale::ParamIDs::assistant, finale::ParamIDs::eq })
+             finale::ParamIDs::compare, finale::ParamIDs::assistant, finale::ParamIDs::eq, finale::ParamIDs::lufsOffset,
+             finale::ParamIDs::manualTarget })
     {
         INFO (id);
         CHECK (rawParam (b, id) == Approx (rawParam (a, id)).margin (1.0e-4));
@@ -255,12 +259,12 @@ TEST_CASE ("assistente Auto puxa o loudness para o alvo")
     setParam (p, finale::ParamIDs::assistant, 2.0f); // Auto
     p.prepareToPlay (48000.0, 512);
 
-    // Ruído 0,05 sai em ~−17 LUFS sem correção (medido no spike); o alvo padrão é −9.
+    // Ruído 0,05 sai em ~−17 LUFS sem correção (medido no spike); o alvo padrão (Pop) é −9,5.
     const auto result = run (p, 2, 48000.0, 0.05f, 60.0, { 512 });
 
     CHECK (result.finite);
     CHECK (p.getAssistantCorrectionDb() > 5.0f);
-    CHECK (p.getOutputShortTermLufs() == Approx (-9.0f).margin (1.5f));
+    CHECK (p.getOutputShortTermLufs() == Approx (-9.5f).margin (1.5f));
 }
 
 TEST_CASE ("estado: correção do assistente sobrevive ao salvar e abrir o projeto")
@@ -419,4 +423,96 @@ TEST_CASE ("estado: projeto antigo zera a correção tonal")
 
     for (float c : a.getTonalCorrectionDb())
         CHECK (c == 0.0f);
+}
+
+namespace
+{
+
+// Processa um bloco curto de silêncio e devolve o alvo de loudness em uso.
+float targetAfterBlock (FinaleProcessor& p)
+{
+    juce::AudioBuffer<float> silence (2, 64);
+    silence.clear();
+    juce::MidiBuffer midi;
+    p.processBlock (silence, midi);
+    return p.getLoudnessTargetLufs();
+}
+
+// Estado salvo sem os filhos PARAM dos IDs dados nem as propriedades dadas: imita um projeto antigo.
+juce::MemoryBlock withoutParts (const juce::MemoryBlock& state, std::initializer_list<const char*> paramIds,
+    std::initializer_list<const char*> properties)
+{
+    auto xml = juce::AudioProcessor::getXmlFromBinary (state.getData(), static_cast<int> (state.getSize()));
+    REQUIRE (xml != nullptr);
+    for (const char* id : paramIds)
+        if (auto* child = xml->getChildByAttribute ("id", id))
+            xml->removeChildElement (child, true);
+    for (const char* property : properties)
+        xml->removeAttribute (property);
+    juce::MemoryBlock out;
+    juce::AudioProcessor::copyXmlToBinary (*xml, out);
+    return out;
+}
+
+} // namespace
+
+TEST_CASE ("alvo de LUFS: gênero, ajuste e manual")
+{
+    const juce::ScopedJuceInitialiser_GUI juceInit;
+    FinaleProcessor p;
+    p.prepareToPlay (48000.0, 512);
+
+    CHECK (targetAfterBlock (p) == Approx (-9.5f).margin (1.0e-4)); // Pop, o padrão
+    setParam (p, finale::ParamIDs::genre, 5.0f); // EDM
+    CHECK (targetAfterBlock (p) == Approx (-8.5f).margin (1.0e-4));
+    setParam (p, finale::ParamIDs::lufsOffset, -3.0f);
+    CHECK (targetAfterBlock (p) == Approx (-11.5f).margin (1.0e-4));
+    setParam (p, finale::ParamIDs::manualTarget, 1.0f);
+    setParam (p, finale::ParamIDs::targetLufs, -14.0f);
+    CHECK (targetAfterBlock (p) == Approx (-14.0f).margin (1.0e-4));
+}
+
+TEST_CASE ("estado: projeto antigo mantém o alvo absoluto")
+{
+    const juce::ScopedJuceInitialiser_GUI juceInit;
+    FinaleProcessor a;
+    setParam (a, finale::ParamIDs::targetLufs, -12.0f);
+    juce::MemoryBlock state;
+    a.getStateInformation (state);
+
+    // Projeto de antes do #29: sem lufsOffset nem manualTarget.
+    const auto oldState = withoutParts (state, { finale::ParamIDs::lufsOffset, finale::ParamIDs::manualTarget }, { });
+    FinaleProcessor b;
+    b.setStateInformation (oldState.getData(), static_cast<int> (oldState.getSize()));
+    CHECK (rawParam (b, finale::ParamIDs::manualTarget) == Approx (1.0f));
+    b.prepareToPlay (48000.0, 512);
+    CHECK (targetAfterBlock (b) == Approx (-12.0f).margin (1.0e-4));
+
+    // Projeto novo, salvo com o alvo do gênero: continua no alvo do gênero.
+    FinaleProcessor c;
+    c.setStateInformation (state.getData(), static_cast<int> (state.getSize()));
+    CHECK (rawParam (c, finale::ParamIDs::manualTarget) == Approx (0.0f));
+    c.prepareToPlay (48000.0, 512);
+    CHECK (targetAfterBlock (c) == Approx (-9.5f).margin (1.0e-4));
+}
+
+TEST_CASE ("estado: projeto sem correção de loudness zera a correção")
+{
+    const juce::ScopedJuceInitialiser_GUI juceInit;
+    FinaleProcessor a;
+    setParam (a, finale::ParamIDs::assistant, 2.0f); // Auto
+    a.prepareToPlay (48000.0, 512);
+    run (a, 2, 48000.0, 0.05f, 30.0, { 512 });
+    REQUIRE (a.getAssistantCorrectionDb() > 2.0f);
+
+    // Congelar antes de salvar: o silêncio não move a correção, então um zero depois prova o reset.
+    setParam (a, finale::ParamIDs::assistant, 3.0f);
+    juce::MemoryBlock state;
+    a.getStateInformation (state);
+    const auto oldState = withoutParts (state, { }, { "assistantCorrectionDb" });
+
+    // Mesma instância: a correção de antes não pode sobrar.
+    a.setStateInformation (oldState.getData(), static_cast<int> (oldState.getSize()));
+    targetAfterBlock (a);
+    CHECK (a.getAssistantCorrectionDb() == 0.0f);
 }

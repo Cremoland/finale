@@ -28,6 +28,8 @@ FinaleProcessor::FinaleProcessor() :
     targetLufsParam = parameters.getRawParameterValue (ParamIDs::targetLufs);
     genreParam = parameters.getRawParameterValue (ParamIDs::genre);
     eqParam = parameters.getRawParameterValue (ParamIDs::eq);
+    lufsOffsetParam = parameters.getRawParameterValue (ParamIDs::lufsOffset);
+    manualTargetParam = parameters.getRawParameterValue (ParamIDs::manualTarget);
     tonalAnalyzer.setDecaySeconds (dsp::TonalAssistant::analyzerMemorySeconds);
 }
 
@@ -81,6 +83,12 @@ juce::AudioProcessorValueTreeState::ParameterLayout FinaleProcessor::createParam
         std::make_unique<juce::AudioParameterFloat> (juce::ParameterID { ParamIDs::eq, 1 }, "EQ",
             juce::NormalisableRange<float> (0.0f, 100.0f, 0.1f), 100.0f,
             juce::AudioParameterFloatAttributes().withLabel ("%")),
+        // Ajuste em cima do alvo do gênero. Com Manual Target ligado, vale o Target LUFS absoluto.
+        std::make_unique<juce::AudioParameterFloat> (juce::ParameterID { ParamIDs::lufsOffset, 1 }, "LUFS Offset",
+            juce::NormalisableRange<float> (-6.0f, 6.0f, 0.5f), 0.0f,
+            juce::AudioParameterFloatAttributes().withLabel ("LU")),
+        std::make_unique<juce::AudioParameterBool> (
+            juce::ParameterID { ParamIDs::manualTarget, 1 }, "Manual Target", false),
     };
 }
 
@@ -165,7 +173,12 @@ void FinaleProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::Midi
         = static_cast<dsp::LoudnessAssistant::Mode> (std::clamp (juce::roundToInt (assistantParam->load()), 0, 3));
     assistant.setMode (mode);
     tonalAssistant.setMode (mode);
-    assistant.setTargetLufs (targetLufsParam->load());
+    // Alvo do gênero + ajuste; com o alvo manual ligado, vale o Target LUFS absoluto (como antes do #29).
+    const float targetLufs = manualTargetParam->load() > 0.5f
+        ? targetLufsParam->load()
+        : dsp::genreTargetLufs (juce::roundToInt (genreParam->load()), lufsOffsetParam->load());
+    assistant.setTargetLufs (targetLufs);
+    loudnessTargetLufs.store (targetLufs, std::memory_order_relaxed);
 
     float* dryBuffers[2] { dryLeft.data(), dryRight.data() };
     float* chunk[2] { nullptr, nullptr };
@@ -280,6 +293,8 @@ void FinaleProcessor::setStateInformation (const void* data, int sizeInBytes)
         if (state.hasProperty ("assistantCorrectionDb"))
             pendingCorrectionDb.store (
                 static_cast<float> (static_cast<double> (state.getProperty ("assistantCorrectionDb"))));
+        else
+            pendingCorrectionDb.store (0.0f); // projeto sem correção salva: volta a 0, mesmo numa instância já usada
 
         // Projetos de antes do assistente tonal não têm as propriedades: a correção tonal volta a 0.
         bool hasTonal = true;
@@ -299,7 +314,14 @@ void FinaleProcessor::setStateInformation (const void* data, int sizeInBytes)
         }
         hasPendingTonal.store (true, std::memory_order_release);
 
+        // Lido antes do replaceState: depois dele, o APVTS acrescenta o filho manualTarget no mesmo nó de state.
+        const bool hasManualTarget = state.getChildWithProperty ("id", ParamIDs::manualTarget).isValid();
         parameters.replaceState (state);
+
+        // Projetos de antes do #29 não têm o manualTarget: abrem com ele ligado e mantêm o alvo absoluto que tinham.
+        if (!hasManualTarget)
+            if (auto* manual = parameters.getParameter (ParamIDs::manualTarget))
+                manual->setValueNotifyingHost (1.0f);
     }
 }
 
