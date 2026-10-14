@@ -66,6 +66,9 @@ public:
     // numChannels acima do valor de prepare() não são tocados.
     void process (float* const* channels, int numChannels, int numSamples)
     {
+        // Zerado antes do retorno antecipado: bloco vazio reporta redução zero.
+        reductionMinGain = 1.0f;
+
         const int active = std::min (numChannels, numPreparedChannels);
         if (active <= 0 || numSamples <= 0)
             return;
@@ -86,6 +89,7 @@ public:
             prevReleased = released;
 
             const float gain = movingAverage (released);
+            reductionMinGain = std::min (reductionMinGain, gain);
 
             // Mesmo atraso do áudio: lê o teto de quando a amostra que sai entrou e grava o atual.
             float& ceilingSlot = ceilingDelay[static_cast<std::size_t> (delayPos)];
@@ -109,6 +113,10 @@ public:
     }
 
     int getLatencySamples() const { return latencySamples; }
+
+    // Redução máxima (dB, ≥ 0) aplicada no último process(): −20·log10 do menor ganho do
+    // bloco. Zero se o bloco foi vazio ou não reduziu nada.
+    float getGainReductionDb() const { return -20.0f * std::log10 (std::max (reductionMinGain, 1e-9f)); }
 
 private:
     // Entrada não-finita vira silêncio, igual ao detector: senão contaminaria a saída.
@@ -176,6 +184,7 @@ private:
     std::int64_t sampleIndex = 0;
 
     float prevReleased = 1.0f;
+    float reductionMinGain = 1.0f; // menor ganho aplicado no último process()
 
     std::vector<float> averageRing;
     int averagePos = 0;

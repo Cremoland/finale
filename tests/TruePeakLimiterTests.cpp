@@ -384,3 +384,25 @@ TEST_CASE ("funciona em vários sample rates")
     for (double fs : { 44100.0, 88200.0, 192000.0 })
         requireLoudSineUnderCeiling (fs, 2);
 }
+
+TEST_CASE ("limiter: informa a redução")
+{
+    // Seno de 4.0 com teto de −1 dBTP: o ganho estável fica perto de 0.223, ou seja ~13 dB.
+    TruePeakLimiter limiter;
+    limiter.prepare (sampleRate, 1);
+    limiter.setCeilingDecibels (-1.0f);
+
+    std::vector<std::vector<float>> loud (1, sine (997.0, 4.0f, 24000, sampleRate)); // 0.5 s
+    processInBlocks (limiter, loud, { 512 });
+    REQUIRE (limiter.getGainReductionDb() >= 12.0f);
+    REQUIRE (limiter.getGainReductionDb() <= 13.5f);
+
+    // Sinal abaixo do teto não é reduzido.
+    TruePeakLimiter quiet;
+    quiet.prepare (sampleRate, 1);
+    quiet.setCeilingDecibels (-1.0f);
+
+    std::vector<std::vector<float>> soft (1, sine (997.0, 0.1f, 24000, sampleRate));
+    processInBlocks (quiet, soft, { 512 });
+    REQUIRE (quiet.getGainReductionDb() == Catch::Approx (0.0f).margin (1e-6f));
+}
