@@ -35,12 +35,12 @@ constexpr int chunkSize = 65536;
 // Lê o arquivo inteiro e devolve a forma tonal; nullopt (com aviso) se o arquivo não servir.
 std::optional<Shape> measureFile (const juce::File& file, juce::AudioFormatManager& formats)
 {
-    const char* name = file.getFileName().toRawUTF8();
+    const juce::String name = file.getFileName();
 
     std::unique_ptr<juce::AudioFormatReader> reader (formats.createReaderFor (file));
     if (reader == nullptr || reader->sampleRate <= 0.0 || reader->numChannels == 0)
     {
-        std::cout << "aviso: " << name << " não pôde ser lido; arquivo pulado\n";
+        std::cout << "aviso: " << name.toRawUTF8() << " não pôde ser lido; arquivo pulado\n";
         return std::nullopt;
     }
 
@@ -57,7 +57,7 @@ std::optional<Shape> measureFile (const juce::File& file, juce::AudioFormatManag
         const int n = static_cast<int> (std::min<juce::int64> (chunkSize, total - start));
         if (!reader->read (block.getArrayOfWritePointers(), channels, start, n))
         {
-            std::cout << "aviso: erro ao ler " << name << "; arquivo pulado\n";
+            std::cout << "aviso: erro ao ler " << name.toRawUTF8() << "; arquivo pulado\n";
             return std::nullopt;
         }
 
@@ -77,10 +77,10 @@ std::optional<Shape> measureFile (const juce::File& file, juce::AudioFormatManag
 
     const Shape shape = analyzer.getShapeDb();
     const bool finite = std::all_of (shape.begin(), shape.end(), [] (float v) { return std::isfinite (v); });
-    const bool hasEnergy = std::any_of (shape.begin(), shape.end(), [] (float v) { return v != 0.0f; });
-    if (!finite || !hasEnergy)
+    const bool isUsableShape = std::any_of (shape.begin(), shape.end(), [] (float v) { return v != 0.0f; });
+    if (!finite || !isUsableShape)
     {
-        std::cout << "aviso: " << name << " sem energia suficiente; arquivo pulado\n";
+        std::cout << "aviso: " << name.toRawUTF8() << " sem energia suficiente; arquivo pulado\n";
         return std::nullopt;
     }
     return shape;
