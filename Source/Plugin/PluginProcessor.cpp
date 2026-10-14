@@ -15,6 +15,7 @@ FinaleProcessor::FinaleProcessor() :
     compressionParam = parameters.getRawParameterValue (ParamIDs::compression);
     characterParam = parameters.getRawParameterValue (ParamIDs::character);
     saturationParam = parameters.getRawParameterValue (ParamIDs::saturation);
+    widthParam = parameters.getRawParameterValue (ParamIDs::width);
 }
 
 juce::AudioProcessorValueTreeState::ParameterLayout FinaleProcessor::createParameterLayout()
@@ -44,6 +45,9 @@ juce::AudioProcessorValueTreeState::ParameterLayout FinaleProcessor::createParam
         std::make_unique<juce::AudioParameterFloat> (juce::ParameterID { ParamIDs::saturation, 1 }, "Saturation",
             juce::NormalisableRange<float> (0.0f, 100.0f, 0.1f), 0.0f,
             juce::AudioParameterFloatAttributes().withLabel ("%")),
+        std::make_unique<juce::AudioParameterFloat> (juce::ParameterID { ParamIDs::width, 1 }, "Width",
+            juce::NormalisableRange<float> (0.0f, 200.0f, 0.1f), 100.0f,
+            juce::AudioParameterFloatAttributes().withLabel ("%")),
     };
 }
 
@@ -55,6 +59,8 @@ void FinaleProcessor::prepareToPlay (double sampleRate, int)
     compressor.prepare (sampleRate, std::max (1, getTotalNumOutputChannels()));
     limiter.prepare (sampleRate, std::max (1, getTotalNumOutputChannels()));
     saturator.prepare (sampleRate, std::max (1, getTotalNumOutputChannels()));
+    stereoWidth.setWidth (widthParam->load() / 100.0f);
+    stereoWidth.prepare (sampleRate);
     outputMeter.prepare (sampleRate, std::max (1, getTotalNumOutputChannels()));
     limiter.setCeilingDecibels (ceilingParam->load());
     setLatencySamples (limiter.getLatencySamples() + dsp::Saturator::latency);
@@ -86,6 +92,9 @@ void FinaleProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::Midi
     saturator.setDriveDecibels (doom ? 18.0f : 6.0f);
     saturator.setMix (saturationParam->load() / 100.0f);
     saturator.process (buffer.getArrayOfWritePointers(), buffer.getNumChannels(), buffer.getNumSamples());
+
+    stereoWidth.setWidth (widthParam->load() / 100.0f);
+    stereoWidth.process (buffer.getArrayOfWritePointers(), buffer.getNumChannels(), buffer.getNumSamples());
 
     limiter.setCeilingDecibels (ceilingParam->load());
     limiter.process (buffer.getArrayOfWritePointers(), buffer.getNumChannels(), buffer.getNumSamples());
