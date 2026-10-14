@@ -5,7 +5,6 @@
 #include <algorithm>
 #include <array>
 #include <cmath>
-#include <cstdint>
 #include <numbers>
 
 namespace finale::dsp
@@ -24,6 +23,10 @@ public:
         10000.0 / std::numbers::sqrt2 };
     static constexpr std::array<double, 4> highEdgeHz { 90.0 * std::numbers::sqrt2, 300.0 * std::numbers::sqrt2,
         3000.0 * std::numbers::sqrt2, 20000.0 };
+
+    // Memória exponencial com constante de tempo `seconds`, para medir música tocando (o plugin).
+    // 0 (o padrão) soma tudo, como na ferramenta offline. Vale a partir do próximo prepare.
+    void setDecaySeconds (double seconds) { decaySeconds = (std::isfinite (seconds) && seconds > 0.0) ? seconds : 0.0; }
 
     // Monta os filtros para sampleRate e zera as somas.
     void prepare (double sampleRate)
@@ -44,10 +47,12 @@ public:
             band.octaves = effectiveOctaves (band, sampleRate);
             bands[b] = band;
         }
-        count = 0;
+        decay = decaySeconds > 0.0 ? std::exp (-1.0 / (decaySeconds * sampleRate)) : 1.0;
+        weight = 0.0;
     }
 
-    // Acumula a energia de cada banda. Amostra não-finita conta como 0, mas ainda entra na contagem.
+    // Acumula a energia de cada banda; com memória, a energia antiga decai. Amostra não-finita conta como 0,
+    // mas ainda entra na contagem.
     void process (const float* mono, int numSamples)
     {
         for (int n = 0; n < numSamples; ++n)
@@ -61,9 +66,9 @@ public:
                 y = band.hp2.process (band.highPass, y);
                 y = band.lp1.process (band.lowPass, y);
                 y = band.lp2.process (band.lowPass, y);
-                band.sumSquares += y * y;
+                band.sumSquares = band.sumSquares * decay + y * y;
             }
-            ++count;
+            weight = weight * decay + 1.0;
         }
     }
 
@@ -74,7 +79,7 @@ public:
     std::array<float, 4> getShapeDb() const
     {
         std::array<float, 4> shape { };
-        if (count == 0)
+        if (weight <= 0.0)
             return shape;
 
         std::array<double, 4> levels { };
@@ -85,7 +90,7 @@ public:
             if (!std::isfinite (energy) || energy <= 0.0)
                 return { };
 
-            levels[b] = 10.0 * std::log10 (energy / (static_cast<double> (count) * bands[b].octaves));
+            levels[b] = 10.0 * std::log10 (energy / (weight * bands[b].octaves));
             mean += levels[b] / static_cast<double> (bands.size());
         }
 
@@ -147,7 +152,9 @@ private:
     }
 
     std::array<Band, 4> bands { };
-    std::int64_t count = 0;
+    double weight = 0.0; // amostras somadas (com memória, a soma ponderada pelo decaimento)
+    double decaySeconds = 0.0; // 0 = sem memória: soma tudo
+    double decay = 1.0; // fator por amostra, calculado no prepare
 };
 
 } // namespace finale::dsp

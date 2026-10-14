@@ -175,3 +175,27 @@ TEST_CASE ("analisador: entrada não-finita")
         CHECK (shape[b] == Catch::Approx (clean[b]).margin (0.1));
     }
 }
+
+TEST_CASE ("analisador: memória esquece o passado")
+{
+    // 5 s de seno em 300 Hz e depois 10 s em 3 kHz, mesma amplitude.
+    std::vector<float> signal (static_cast<std::size_t> (15 * kFs));
+    for (std::size_t n = 0; n < signal.size(); ++n)
+    {
+        const double f = n < static_cast<std::size_t> (5 * kFs) ? 300.0 : 3000.0;
+        signal[n] = static_cast<float> (0.5 * std::sin (2.0 * std::numbers::pi * f * static_cast<double> (n) / kFs));
+    }
+
+    BandAnalyzer withMemory;
+    withMemory.setDecaySeconds (1.0);
+    withMemory.prepare (kFs);
+    withMemory.process (signal.data(), static_cast<int> (signal.size()));
+    const Shape recent = withMemory.getShapeDb();
+
+    // Com memória de 1 s, os 300 Hz de 10 s atrás caíram ~43 dB: só os 3 kHz contam.
+    CHECK (recent[2] - recent[1] > 20.0f);
+
+    // Sem memória, os dois senos contam (10 s contra 5 s: ~3 dB de diferença).
+    const Shape all = analyse (signal);
+    CHECK (std::abs (all[2] - all[1]) < 6.0f);
+}
