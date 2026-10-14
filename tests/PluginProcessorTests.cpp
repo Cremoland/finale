@@ -161,6 +161,7 @@ TEST_CASE ("saída abaixo do teto em 44,1 e 96 kHz")
         INFO ("taxa " << sampleRate);
         FinaleProcessor p;
         setParam (p, finale::ParamIDs::gain, 12.0f);
+        setParam (p, finale::ParamIDs::ceiling, -1.0f);
         setParam (p, finale::ParamIDs::amount, 100.0f);
         setParam (p, finale::ParamIDs::character, 4.0f); // DOOM: o caso mais quente
         setParam (p, finale::ParamIDs::compare, 1.0f);
