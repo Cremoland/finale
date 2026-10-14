@@ -58,13 +58,26 @@ TEST_CASE ("tonal: auto leva a mix para a forma neutra sem passar dela")
 {
     auto assistant = prepared (Mode::autoAdapt);
     // Medida plana: a correção desejada é a própria forma neutra.
-    float previous = 0.0f;
+    Shape previous { };
     for (int s = 0; s < 6000; ++s) // 60 s
     {
         assistant.update (flat, true, kStep);
-        const float now = assistant.getCorrectionDb()[0];
-        CHECK (now >= previous); // sobe sem oscilar
-        CHECK (now <= neutral[0]); // e não passa do alvo
+        const Shape now = assistant.getCorrectionDb();
+        for (std::size_t b = 0; b < 4; ++b)
+        {
+            INFO ("banda " << b << ", passo " << s);
+            // Bandas de alvo positivo sobem; as de alvo negativo descem. Nunca passam do alvo.
+            if (neutral[b] >= 0.0f)
+            {
+                CHECK (now[b] >= previous[b]); // sobe sem oscilar
+                CHECK (now[b] <= neutral[b]); // e não passa do alvo
+            }
+            else
+            {
+                CHECK (now[b] <= previous[b]); // desce sem oscilar
+                CHECK (now[b] >= neutral[b]); // e não passa do alvo
+            }
+        }
         previous = now;
     }
     checkShape (assistant.getCorrectionDb(), neutral, 0.01);
@@ -127,8 +140,10 @@ TEST_CASE ("tonal: setCorrectionDb limita e ignora não-finito")
 {
     TonalAssistant assistant;
     assistant.prepare (kFs);
+    // Primeiro um valor conhecido, para o NaN provar que foi ignorado (e não só que o padrão é zero).
+    assistant.setCorrectionDb ({ 1.0f, 2.0f, 3.0f, 4.0f });
     assistant.setCorrectionDb ({ 7.0f, std::numeric_limits<float>::quiet_NaN(), -2.0f, -9.0f });
-    checkShape (assistant.getCorrectionDb(), { 6.0f, 0.0f, -2.0f, -6.0f }, 0.0);
+    checkShape (assistant.getCorrectionDb(), { 6.0f, 2.0f, -2.0f, -6.0f }, 0.0);
 }
 
 TEST_CASE ("tonal: bloco de 0 e de 1 amostra")
