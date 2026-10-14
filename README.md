@@ -36,7 +36,7 @@ references/
   Rock/
 ```
 
-Aceita WAV, AIFF e FLAC (MP3 não). Precisa de pelo menos 2 gêneros com arquivos. Depois, a partir da raiz do repo:
+Aceita WAV, AIFF e FLAC (MP3 não), com taxa de amostragem de pelo menos 32 kHz; arquivos abaixo disso são pulados. Coloque os arquivos direto na pasta do gênero: subpastas dentro dela não são lidas. Precisa de pelo menos 2 gêneros com arquivos. Os gêneros medidos definem a diferença entre si; o viés comum é a média da tabela atual só desses gêneros, e cada diferença fica limitada a ±6 dB. Depois, a partir da raiz do repo:
 
 ```
 build\finale_curvegen_artefacts\Release\finale_curvegen.exe
