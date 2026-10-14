@@ -82,6 +82,7 @@ if(FINALE_BUILD_TESTS)
         tests/SaturatorTests.cpp
         tests/StereoWidthTests.cpp
         tests/MacroTests.cpp
+        tests/GenreCurvesTests.cpp
         tests/AbCompareTests.cpp
         tests/LoudnessAssistantTests.cpp
         tests/TonalEqTests.cpp)
