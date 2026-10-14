@@ -2,6 +2,8 @@
 #include "Plugin/PluginEditor.h"
 
 #include <algorithm>
+#include <cmath>
+#include <limits>
 
 namespace finale
 {
@@ -107,6 +109,11 @@ void FinaleProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::Midi
     if (maxChunk <= 0)
         return; // sem prepareToPlay: nada pré-alocado para o original
 
+    // Correção do projeto carregado: aplicada aqui para o assistant ser tocado só pelo audio thread.
+    const float pending = pendingCorrectionDb.exchange (std::numeric_limits<float>::quiet_NaN());
+    if (std::isfinite (pending))
+        assistant.setCorrectionDb (pending);
+
     const int numSamples = buffer.getNumSamples();
     const int channels = std::min (buffer.getNumChannels(), 2);
 
@@ -166,7 +173,7 @@ void FinaleProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::Midi
         outputIntegratedLufs.store (outputMeter.getIntegratedLufs(), std::memory_order_relaxed);
 
         // A malha é fechada na saída, então a correção também compensa o limiter.
-        assistant.update (outputMeter.getShortTermLufs(), n);
+        assistant.update (outputMeter.getShortTermLufs(), n, limiter.getGainReductionDb());
         assistantCorrectionDb.store (assistant.getCorrectionDb(), std::memory_order_relaxed);
 
         // Igualação: o original entra no mesmo LUFS de curto prazo que a saída processada.
@@ -185,14 +192,28 @@ juce::AudioProcessorEditor* FinaleProcessor::createEditor()
 
 void FinaleProcessor::getStateInformation (juce::MemoryBlock& destData)
 {
-    if (auto xml = parameters.copyState().createXml())
+    // A correção não é parâmetro: vai como propriedade extra do estado. Se ainda há uma
+    // pendente (projeto carregado sem tocar áudio), ela é a que vale e não a da atomic.
+    auto state = parameters.copyState();
+    const float pending = pendingCorrectionDb.load();
+    const float correction = std::isfinite (pending) ? pending : assistantCorrectionDb.load (std::memory_order_relaxed);
+    state.setProperty ("assistantCorrectionDb", correction, nullptr);
+
+    if (auto xml = state.createXml())
         copyXmlToBinary (*xml, destData);
 }
 
 void FinaleProcessor::setStateInformation (const void* data, int sizeInBytes)
 {
     if (auto xml = getXmlFromBinary (data, sizeInBytes); xml && xml->hasTagName (parameters.state.getType()))
-        parameters.replaceState (juce::ValueTree::fromXml (*xml));
+    {
+        const auto state = juce::ValueTree::fromXml (*xml);
+        if (state.hasProperty ("assistantCorrectionDb"))
+            pendingCorrectionDb.store (
+                static_cast<float> (static_cast<double> (state.getProperty ("assistantCorrectionDb"))));
+
+        parameters.replaceState (state);
+    }
 }
 
 } // namespace finale

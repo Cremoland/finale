@@ -12,6 +12,8 @@
 
 #include <juce_audio_processors/juce_audio_processors.h>
 
+#include <atomic>
+#include <limits>
 #include <vector>
 
 namespace finale
@@ -98,6 +100,9 @@ private:
     std::atomic<float>* targetLufsParam = nullptr;
     dsp::LoudnessAssistant assistant;
     std::atomic<float> assistantCorrectionDb { 0.0f };
+    // Correção lida do projeto, esperando o audio thread aplicá-la (NaN = nada pendente).
+    // Só o processBlock mexe no assistant; o estado chega pela thread de mensagens.
+    std::atomic<float> pendingCorrectionDb { std::numeric_limits<float>::quiet_NaN() };
     // Cópia do original por pedaço, pré-alocada: processBlock não aloca.
     std::vector<float> dryLeft, dryRight;
     int maxChunk = 0;
