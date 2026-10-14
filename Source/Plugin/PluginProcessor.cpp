@@ -11,6 +11,7 @@ FinaleProcessor::FinaleProcessor() :
     parameters (*this, nullptr, "FinaleState", createParameterLayout())
 {
     gainParam = parameters.getRawParameterValue (ParamIDs::gain);
+    amountParam = parameters.getRawParameterValue (ParamIDs::amount);
     ceilingParam = parameters.getRawParameterValue (ParamIDs::ceiling);
     compressionParam = parameters.getRawParameterValue (ParamIDs::compression);
     characterParam = parameters.getRawParameterValue (ParamIDs::character);
@@ -39,11 +40,12 @@ juce::AudioProcessorValueTreeState::ParameterLayout FinaleProcessor::createParam
         // A ordem das opções é permanente: projetos salvos guardam o índice, não o nome.
         std::make_unique<juce::AudioParameterChoice> (juce::ParameterID { ParamIDs::character, 1 }, "Character",
             juce::StringArray { "Clean", "Warm", "Punch", "Wide", "DOOM" }, 0),
+        // Compressão e saturação são quantidades que escalam o amount (100 % = alvo do caráter).
         std::make_unique<juce::AudioParameterFloat> (juce::ParameterID { ParamIDs::compression, 1 }, "Compression",
-            juce::NormalisableRange<float> (0.0f, 100.0f, 0.1f), 0.0f,
+            juce::NormalisableRange<float> (0.0f, 100.0f, 0.1f), 100.0f,
             juce::AudioParameterFloatAttributes().withLabel ("%")),
         std::make_unique<juce::AudioParameterFloat> (juce::ParameterID { ParamIDs::saturation, 1 }, "Saturation",
-            juce::NormalisableRange<float> (0.0f, 100.0f, 0.1f), 0.0f,
+            juce::NormalisableRange<float> (0.0f, 100.0f, 0.1f), 100.0f,
             juce::AudioParameterFloatAttributes().withLabel ("%")),
         std::make_unique<juce::AudioParameterFloat> (juce::ParameterID { ParamIDs::width, 1 }, "Width",
             juce::NormalisableRange<float> (0.0f, 200.0f, 0.1f), 100.0f,
@@ -59,8 +61,10 @@ void FinaleProcessor::prepareToPlay (double sampleRate, int)
     compressor.prepare (sampleRate, std::max (1, getTotalNumOutputChannels()));
     limiter.prepare (sampleRate, std::max (1, getTotalNumOutputChannels()));
     saturator.prepare (sampleRate, std::max (1, getTotalNumOutputChannels()));
-    stereoWidth.setWidth (widthParam->load() / 100.0f);
+    stereoWidth.setWidth (1.0f); // a largura real chega no primeiro bloco, com suavização
     stereoWidth.prepare (sampleRate);
+    push.setGainDecibels (0.0f);
+    push.prepare (sampleRate);
     outputMeter.prepare (sampleRate, std::max (1, getTotalNumOutputChannels()));
     limiter.setCeilingDecibels (ceilingParam->load());
     setLatencySamples (limiter.getLatencySamples() + dsp::Saturator::latency);
@@ -80,21 +84,21 @@ void FinaleProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::Midi
     gain.setGainDecibels (gainParam->load());
     gain.process (buffer.getArrayOfWritePointers(), buffer.getNumChannels(), buffer.getNumSamples());
 
-    // shortcut: 0–100 % vira razão 1:1–4:1; o knob principal (#11) e os presets vão mapear isso depois
-    compressor.setRatio (1.0f + 3.0f * compressionParam->load() / 100.0f);
+    const auto targets = dsp::mapAmount (amountParam->load() / 100.0f, juce::roundToInt (characterParam->load()),
+        compressionParam->load() / 100.0f, saturationParam->load() / 100.0f, widthParam->load() / 100.0f);
+
+    compressor.setRatio (targets.ratio);
     compressor.process (buffer.getArrayOfWritePointers(), buffer.getNumChannels(), buffer.getNumSamples());
 
-    // A ordem das opções de character é permanente: 4 é DOOM.
-    constexpr int characterDoom = 4;
-    const bool doom = juce::roundToInt (characterParam->load()) == characterDoom;
-    // shortcut: drive fixo (6 dB normal, 18 dB no DOOM) e sem compensação de volume; presets, Auto (#9) e o knob amount
-    // (#11) vão ajustar
-    saturator.setDriveDecibels (doom ? 18.0f : 6.0f);
-    saturator.setMix (saturationParam->load() / 100.0f);
+    saturator.setDriveDecibels (targets.saturationDriveDb);
+    saturator.setMix (targets.saturationMix);
     saturator.process (buffer.getArrayOfWritePointers(), buffer.getNumChannels(), buffer.getNumSamples());
 
-    stereoWidth.setWidth (widthParam->load() / 100.0f);
+    stereoWidth.setWidth (targets.width);
     stereoWidth.process (buffer.getArrayOfWritePointers(), buffer.getNumChannels(), buffer.getNumSamples());
+
+    push.setGainDecibels (targets.pushDb);
+    push.process (buffer.getArrayOfWritePointers(), buffer.getNumChannels(), buffer.getNumSamples());
 
     limiter.setCeilingDecibels (ceilingParam->load());
     limiter.process (buffer.getArrayOfWritePointers(), buffer.getNumChannels(), buffer.getNumSamples());

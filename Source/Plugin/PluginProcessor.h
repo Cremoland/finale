@@ -2,6 +2,7 @@
 
 #include "DSP/Gain.h"
 #include "DSP/LoudnessMeter.h"
+#include "DSP/Macro.h"
 #include "DSP/MultibandCompressor.h"
 #include "DSP/Saturator.h"
 #include "DSP/StereoWidth.h"
@@ -64,6 +65,7 @@ private:
 
     std::atomic<float>* gainParam = nullptr;
     dsp::Gain gain;
+    std::atomic<float>* amountParam = nullptr;
     std::atomic<float>* compressionParam = nullptr;
     dsp::MultibandCompressor compressor;
     std::atomic<float>* characterParam = nullptr;
@@ -71,6 +73,7 @@ private:
     dsp::Saturator saturator;
     std::atomic<float>* widthParam = nullptr;
     dsp::StereoWidth stereoWidth;
+    dsp::Gain push;
     std::atomic<float>* ceilingParam = nullptr;
     dsp::TruePeakLimiter limiter;
     dsp::LoudnessMeter outputMeter;
