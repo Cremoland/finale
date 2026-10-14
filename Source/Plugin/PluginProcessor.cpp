@@ -1,6 +1,8 @@
 #include "Plugin/PluginProcessor.h"
 #include "Plugin/PluginEditor.h"
 
+#include <algorithm>
+
 namespace finale
 {
 
@@ -17,6 +19,7 @@ FinaleProcessor::FinaleProcessor() :
     characterParam = parameters.getRawParameterValue (ParamIDs::character);
     saturationParam = parameters.getRawParameterValue (ParamIDs::saturation);
     widthParam = parameters.getRawParameterValue (ParamIDs::width);
+    compareParam = parameters.getRawParameterValue (ParamIDs::compare);
 }
 
 juce::AudioProcessorValueTreeState::ParameterLayout FinaleProcessor::createParameterLayout()
@@ -50,11 +53,18 @@ juce::AudioProcessorValueTreeState::ParameterLayout FinaleProcessor::createParam
         std::make_unique<juce::AudioParameterFloat> (juce::ParameterID { ParamIDs::width, 1 }, "Width",
             juce::NormalisableRange<float> (0.0f, 200.0f, 0.1f), 100.0f,
             juce::AudioParameterFloatAttributes().withLabel ("%")),
+        std::make_unique<juce::AudioParameterBool> (juce::ParameterID { ParamIDs::compare, 1 }, "Compare", false),
     };
 }
 
-void FinaleProcessor::prepareToPlay (double sampleRate, int)
+void FinaleProcessor::prepareToPlay (double sampleRate, int samplesPerBlock)
 {
+    maxChunk = std::max (1, samplesPerBlock);
+    dryLeft.assign (static_cast<std::size_t> (maxChunk), 0.0f);
+    dryRight.assign (static_cast<std::size_t> (maxChunk), 0.0f);
+
+    const int channels = std::max (1, getTotalNumOutputChannels());
+
     gain.setGainDecibels (gainParam->load());
     gain.prepare (sampleRate);
 
@@ -68,6 +78,12 @@ void FinaleProcessor::prepareToPlay (double sampleRate, int)
     outputMeter.prepare (sampleRate, std::max (1, getTotalNumOutputChannels()));
     limiter.setCeilingDecibels (ceilingParam->load());
     setLatencySamples (limiter.getLatencySamples() + dsp::Saturator::latency);
+
+    inputMeter.prepare (sampleRate, channels);
+    // O teto precisa estar no AbCompare antes do prepare (o limiter interno o usa ao preparar).
+    abCompare.setCeilingDecibels (ceilingParam->load());
+    abCompare.setCompare (compareParam->load() > 0.5f);
+    abCompare.prepare (sampleRate, channels, dsp::Saturator::latency, maxChunk);
 }
 
 bool FinaleProcessor::isBusesLayoutSupported (const BusesLayout& layouts) const
@@ -81,33 +97,73 @@ void FinaleProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::Midi
 {
     juce::ScopedNoDenormals noDenormals;
 
-    gain.setGainDecibels (gainParam->load());
-    gain.process (buffer.getArrayOfWritePointers(), buffer.getNumChannels(), buffer.getNumSamples());
+    if (maxChunk <= 0)
+        return; // sem prepareToPlay: nada pré-alocado para o original
 
+    const int numSamples = buffer.getNumSamples();
+    const int channels = std::min (buffer.getNumChannels(), 2);
+
+    // Valores que valem para o bloco todo: lidos uma vez, fora do laço.
     const auto targets = dsp::mapAmount (amountParam->load() / 100.0f, juce::roundToInt (characterParam->load()),
         compressionParam->load() / 100.0f, saturationParam->load() / 100.0f, widthParam->load() / 100.0f);
+    const float gainDb = gainParam->load();
+    const float ceilingDb = ceilingParam->load();
+    const bool compare = compareParam->load() > 0.5f;
 
-    compressor.setRatio (targets.ratio);
-    compressor.process (buffer.getArrayOfWritePointers(), buffer.getNumChannels(), buffer.getNumSamples());
+    float* dryBuffers[2] { dryLeft.data(), dryRight.data() };
+    float* chunk[2] { nullptr, nullptr };
+    const float* dry[2] { nullptr, nullptr };
 
-    saturator.setDriveDecibels (targets.saturationDriveDb);
-    saturator.setMix (targets.saturationMix);
-    saturator.process (buffer.getArrayOfWritePointers(), buffer.getNumChannels(), buffer.getNumSamples());
+    // Pedaços de no máximo maxChunk: o original copiado cabe nos buffers pré-alocados.
+    for (int start = 0; start < numSamples; start += maxChunk)
+    {
+        const int n = std::min (maxChunk, numSamples - start);
 
-    stereoWidth.setWidth (targets.width);
-    stereoWidth.process (buffer.getArrayOfWritePointers(), buffer.getNumChannels(), buffer.getNumSamples());
+        // O original é copiado antes do ganho de entrada.
+        for (int ch = 0; ch < channels; ++ch)
+        {
+            chunk[ch] = buffer.getWritePointer (ch, start);
+            std::copy_n (buffer.getReadPointer (ch, start), n, dryBuffers[ch]);
+            dry[ch] = dryBuffers[ch];
+        }
 
-    push.setGainDecibels (targets.pushDb);
-    push.process (buffer.getArrayOfWritePointers(), buffer.getNumChannels(), buffer.getNumSamples());
+        inputMeter.process (dry, channels, n);
 
-    limiter.setCeilingDecibels (ceilingParam->load());
-    limiter.process (buffer.getArrayOfWritePointers(), buffer.getNumChannels(), buffer.getNumSamples());
+        gain.setGainDecibels (gainDb);
+        gain.process (chunk, channels, n);
 
-    // Mede depois do limiter: o que o usuário ouve é o que conta para o LUFS.
-    outputMeter.process (buffer.getArrayOfReadPointers(), buffer.getNumChannels(), buffer.getNumSamples());
-    outputMomentaryLufs.store (outputMeter.getMomentaryLufs(), std::memory_order_relaxed);
-    outputShortTermLufs.store (outputMeter.getShortTermLufs(), std::memory_order_relaxed);
-    outputIntegratedLufs.store (outputMeter.getIntegratedLufs(), std::memory_order_relaxed);
+        compressor.setRatio (targets.ratio);
+        compressor.process (chunk, channels, n);
+
+        saturator.setDriveDecibels (targets.saturationDriveDb);
+        saturator.setMix (targets.saturationMix);
+        saturator.process (chunk, channels, n);
+
+        stereoWidth.setWidth (targets.width);
+        stereoWidth.process (chunk, channels, n);
+
+        push.setGainDecibels (targets.pushDb);
+        push.process (chunk, channels, n);
+
+        limiter.setCeilingDecibels (ceilingDb);
+        limiter.process (chunk, channels, n);
+
+        // Mede depois do limiter: o que o usuário ouve é o que conta para o LUFS.
+        outputMeter.process (chunk, channels, n);
+        outputMomentaryLufs.store (outputMeter.getMomentaryLufs(), std::memory_order_relaxed);
+        outputShortTermLufs.store (outputMeter.getShortTermLufs(), std::memory_order_relaxed);
+        outputIntegratedLufs.store (outputMeter.getIntegratedLufs(), std::memory_order_relaxed);
+
+        // Igualação: o original entra no mesmo LUFS de curto prazo que a saída processada.
+        const float inLufs = inputMeter.getShortTermLufs();
+        const float outLufs = outputMeter.getShortTermLufs();
+        if (inLufs > dsp::LoudnessMeter::floorLufs && outLufs > dsp::LoudnessMeter::floorLufs)
+            abCompare.setMatchGainDecibels (outLufs - inLufs);
+
+        abCompare.setCompare (compare);
+        abCompare.setCeilingDecibels (ceilingDb);
+        abCompare.process (dry, chunk, channels, n);
+    }
 }
 
 juce::AudioProcessorEditor* FinaleProcessor::createEditor()
