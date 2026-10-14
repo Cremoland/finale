@@ -1,5 +1,6 @@
 #pragma once
 
+#include "DSP/AbCompare.h"
 #include "DSP/Gain.h"
 #include "DSP/LoudnessMeter.h"
 #include "DSP/Macro.h"
@@ -9,6 +10,8 @@
 #include "DSP/TruePeakLimiter.h"
 
 #include <juce_audio_processors/juce_audio_processors.h>
+
+#include <vector>
 
 namespace finale
 {
@@ -24,6 +27,7 @@ inline constexpr auto character = "character";
 inline constexpr auto compression = "compression";
 inline constexpr auto saturation = "saturation";
 inline constexpr auto width = "width";
+inline constexpr auto compare = "compare";
 } // namespace ParamIDs
 
 class FinaleProcessor : public juce::AudioProcessor
@@ -80,6 +84,13 @@ private:
     std::atomic<float> outputMomentaryLufs { dsp::LoudnessMeter::floorLufs };
     std::atomic<float> outputShortTermLufs { dsp::LoudnessMeter::floorLufs };
     std::atomic<float> outputIntegratedLufs { dsp::LoudnessMeter::floorLufs };
+
+    std::atomic<float>* compareParam = nullptr;
+    dsp::LoudnessMeter inputMeter; // LUFS do original, para igualar o A/B
+    dsp::AbCompare abCompare;
+    // Cópia do original por pedaço, pré-alocada: processBlock não aloca.
+    std::vector<float> dryLeft, dryRight;
+    int maxChunk = 0;
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (FinaleProcessor)
 };
