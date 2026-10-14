@@ -87,3 +87,22 @@ TEST_CASE ("curvas: entradas inválidas")
         requireFlat (genreEqGains (1.0f, 3, -1.0f));
     }
 }
+
+TEST_CASE ("alvo de LUFS por gênero")
+{
+    using finale::dsp::genreTargetLufs;
+    // Trap, Rap/Boom bap, Lo-fi, Funk BR, House, EDM, Pop, Rock.
+    const float expected[] { -9.0f, -9.0f, -9.0f, -9.0f, -9.0f, -8.5f, -9.5f, -9.0f };
+    for (int g = 0; g < finale::dsp::numGenres; ++g)
+    {
+        INFO ("gênero " << g);
+        CHECK (genreTargetLufs (g, 0.0f) == expected[g]);
+    }
+
+    CHECK (genreTargetLufs (6, -3.0f) == -12.5f); // ajuste soma ao alvo
+    CHECK (genreTargetLufs (5, 6.0f) == -5.0f); // −2,5 limitado ao teto da faixa
+    CHECK (genreTargetLufs (6, -10.0f) == -16.0f); // limitado ao piso da faixa
+    CHECK (genreTargetLufs (6, std::numeric_limits<float>::quiet_NaN()) == -9.5f);
+    CHECK (genreTargetLufs (-1, 0.0f) == -9.0f); // gênero inválido usa −9
+    CHECK (genreTargetLufs (99, 1.0f) == -8.0f);
+}
