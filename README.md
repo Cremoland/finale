@@ -39,7 +39,7 @@ references/
 Aceita WAV, AIFF e FLAC (MP3 não). Precisa de pelo menos 2 gêneros com arquivos. Depois, a partir da raiz do repo:
 
 ```
-build\Release\finale_curvegen.exe
+build\finale_curvegen_artefacts\Release\finale_curvegen.exe
 ```
 
 A ferramenta regenera `Source/DSP/GenreCurveTable.h` (só se algo mudou). Depois, recompile o plugin. Outros caminhos: `finale_curvegen <pastaDeReferencias> <arquivoDeSaida>`.
