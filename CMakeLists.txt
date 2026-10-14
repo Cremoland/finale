@@ -73,6 +73,12 @@ if(FINALE_BUILD_PLUGIN)
             juce::juce_core
             juce::juce_recommended_config_flags
             juce::juce_recommended_warning_flags)
+
+    # Benchmark de CPU do processor (fora do ctest: tempo de relógio varia por máquina).
+    add_executable (finale_benchmark tools/benchmark/main.cpp)
+    target_link_libraries (finale_benchmark PRIVATE finale_plugin finale_dsp)
+    target_include_directories (finale_benchmark PRIVATE $<TARGET_PROPERTY:finale_plugin,INCLUDE_DIRECTORIES>)
+    target_compile_definitions (finale_benchmark PRIVATE $<TARGET_PROPERTY:finale_plugin,COMPILE_DEFINITIONS>)
 endif()
 
 if(FINALE_BUILD_TESTS)
@@ -111,7 +117,7 @@ endif()
 # e copia os includes e as definições dela, para enxergar JucePlugin_Name e os headers do JUCE.
 if(FINALE_BUILD_PLUGIN AND FINALE_BUILD_TESTS)
     add_executable(finale_plugin_tests tests/PluginProcessorTests.cpp)
-    target_link_libraries(finale_plugin_tests PRIVATE finale_plugin Catch2::Catch2WithMain)
+    target_link_libraries(finale_plugin_tests PRIVATE finale_plugin finale_dsp Catch2::Catch2WithMain)
     target_include_directories(finale_plugin_tests PRIVATE $<TARGET_PROPERTY:finale_plugin,INCLUDE_DIRECTORIES>)
     target_compile_definitions(finale_plugin_tests PRIVATE $<TARGET_PROPERTY:finale_plugin,COMPILE_DEFINITIONS>)
     add_test(NAME plugin COMMAND finale_plugin_tests)

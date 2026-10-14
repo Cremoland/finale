@@ -39,6 +39,7 @@ Plugin de masterização "de um knob" no estilo Soundgoodizer, com assistente qu
 - **Visual Studio 2022**, os dois no Windows
 - **CI (GitHub Actions, Windows):** compila, roda testes de DSP (silêncio, NaN etc.), roda pluginval, checa clang-format
 - **CLAUDE.md** no repo com convenções compartilhadas pelos dois Claudes
+- **CPU (14/10/2026, `finale_benchmark`, i7-9750H, Release, amount 100):** cadeia inteira ≈ 3,7 % de um núcleo a 48 kHz e ≈ 7,3 % a 96 kHz, parecido em qualquer caráter, com A/B e com assistente (o A/B e o saturador rodam sempre). p99 por bloco: ≤ 7 % a 48 kHz e ≤ 13 % a 96 kHz. Metade do custo é o saturador (medição por bloco num spike a 48 kHz/512: saturador ≈ 2,0 %, compressor ≈ 0,6 %, A/B ≈ 0,4 %, limiter ≈ 0,3 %) (oversampling 2x com FIR de 63 taps, três convoluções por amostra), seguido do compressor. Decidido: não otimizar agora. Se precisar, o primeiro passo é o oversampler pular os taps nulos da meia banda e os zeros inseridos no upsample, o que corta cerca de 2/3 das multiplicações dele (de 189 para ~66 por amostra e canal).
 
 ## Colaboração
 

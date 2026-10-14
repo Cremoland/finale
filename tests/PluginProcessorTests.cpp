@@ -152,6 +152,27 @@ TEST_CASE ("saída finita e abaixo do teto com qualquer bloco, caráter e A/B")
             }
 }
 
+TEST_CASE ("saída abaixo do teto em 44,1 e 96 kHz")
+{
+    const juce::ScopedJuceInitialiser_GUI juceInit;
+
+    for (double sampleRate : { 44100.0, 96000.0 })
+    {
+        INFO ("taxa " << sampleRate);
+        FinaleProcessor p;
+        setParam (p, finale::ParamIDs::gain, 12.0f);
+        setParam (p, finale::ParamIDs::ceiling, -1.0f);
+        setParam (p, finale::ParamIDs::amount, 100.0f);
+        setParam (p, finale::ParamIDs::character, 4.0f); // DOOM: o caso mais quente
+        setParam (p, finale::ParamIDs::compare, 1.0f);
+        p.prepareToPlay (sampleRate, 512);
+
+        const auto result = run (p, 2, sampleRate, 0.5f, 2.0, { 512, 1, 37 });
+        CHECK (result.finite);
+        CHECK (result.maxTruePeakDb <= -1.0f + 0.1f);
+    }
+}
+
 TEST_CASE ("processBlock sem prepareToPlay não mexe no áudio")
 {
     const juce::ScopedJuceInitialiser_GUI juceInit;
