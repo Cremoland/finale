@@ -13,8 +13,9 @@ namespace finale::dsp
 // Saturador tanh com oversampling 2x. A curva tanh(g·x)/g é waveshaping estático: a
 // não-linearidade gera harmônicos que, sem oversampling, rebatem como aliasing. Rodar
 // a curva na taxa 2x e filtrar na volta empurra esse aliasing para fora da banda.
-// Fonte: Zölzer, "DAFX", cap. de distorção (waveshaping com tanh como soft clipper).
+// Fonte: Zölzer, "DAFX" (2ª ed.), cap. 4, "Nonlinear Processing" (tanh como soft clipper).
 // A divisão por g faz sinal pequeno passar com ganho unitário; o drive só muda a dureza.
+// Com 2x, drive alto (DOOM) em agudos acima de ~12 kHz ainda dobra harmônicos para dentro da banda; 4x resolveria.
 class Saturator
 {
 public:
@@ -25,7 +26,8 @@ public:
         preparedChannels = std::max (0, numChannels);
         oversampler.prepare (preparedChannels);
 
-        // Suavizadores de 20 ms, começando no alvo: sem rampa depois de prepare.
+        // Suavizadores de 20 ms. Começam nos alvos padrão (drive 0 dB, mix 0), não nos valores do
+        // plugin: o plugin seta os seus no primeiro bloco, então há uma rampa de ~100 ms ao carregar (sem estalo).
         smoothing = std::exp (-1.0 / (0.02 * sampleRate));
         driveDb = targetDriveDb;
         mix = targetMix;

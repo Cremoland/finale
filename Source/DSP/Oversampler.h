@@ -20,7 +20,7 @@ class HalfbandOversampler
 public:
     static constexpr int taps = 63;
     // (taps - 1) / 2 amostras na taxa 2x por filtro, dois filtros: 31 amostras base.
-    static constexpr int latency = 31;
+    static constexpr int latency = (taps - 1) / 2;
 
     HalfbandOversampler()
     {

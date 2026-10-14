@@ -78,9 +78,12 @@ void FinaleProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::Midi
     compressor.setRatio (1.0f + 3.0f * compressionParam->load() / 100.0f);
     compressor.process (buffer.getArrayOfWritePointers(), buffer.getNumChannels(), buffer.getNumSamples());
 
-    const bool doom = juce::roundToInt (characterParam->load()) == 4;
-    saturator.setDriveDecibels (
-        doom ? 30.0f : 18.0f); // shortcut: drive fixo; presets/caráter (Warm) vão ajustar depois
+    // A ordem das opções de character é permanente: 4 é DOOM.
+    constexpr int characterDoom = 4;
+    const bool doom = juce::roundToInt (characterParam->load()) == characterDoom;
+    // shortcut: drive fixo (6 dB normal, 18 dB no DOOM) e sem compensação de volume; presets, Auto (#9) e o knob amount
+    // (#11) vão ajustar
+    saturator.setDriveDecibels (doom ? 18.0f : 6.0f);
     saturator.setMix (saturationParam->load() / 100.0f);
     saturator.process (buffer.getArrayOfWritePointers(), buffer.getNumChannels(), buffer.getNumSamples());
 

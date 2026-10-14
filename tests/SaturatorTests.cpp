@@ -89,6 +89,16 @@ double levelDb (const std::vector<double>& x, std::size_t first, std::size_t las
     return 20.0 * std::log10 (std::sqrt (sum / static_cast<double> (last - first)));
 }
 
+// Maior curvatura |y[n] − 2·y[n−1] + y[n−2]| em n de [first, last). Um degrau aparece aqui
+// como pico; a senoide em regime tem curvatura pequena e previsível.
+double maxCurvature (const std::vector<double>& y, std::size_t first, std::size_t last)
+{
+    double maxC = 0.0;
+    for (std::size_t n = first; n < last; ++n)
+        maxC = std::max (maxC, std::abs (y[n] - 2.0 * y[n - 1] + y[n - 2]));
+    return maxC;
+}
+
 // Sequência de um fluxo de mix em 0 até 1 s e 1 depois, com os blocos indicados.
 std::vector<double> mixStepRun (const std::vector<std::size_t>& pattern)
 {
@@ -174,14 +184,29 @@ TEST_CASE ("aliasing rejeitado")
     REQUIRE (20.0 * std::log10 (h18k / h10k) <= -50.0);
 }
 
+TEST_CASE ("saturação: drive padrão quase não muda o volume")
+{
+    const std::vector<double> input = sine (1000.0, 0.5, fs, 2 * oneSecond);
+
+    Saturator saturator;
+    saturator.prepare (fs, 2);
+    saturator.setDriveDecibels (6.0f);
+    saturator.setMix (1.0f);
+
+    const std::vector<double> output = render (saturator, input, 2, { 512 });
+
+    const double gainDb = levelDb (output, oneSecond, 2 * oneSecond) - levelDb (input, oneSecond, 2 * oneSecond);
+    REQUIRE (gainDb >= -3.0);
+    REQUIRE (gainDb <= 0.0);
+}
+
 TEST_CASE ("mudança de mix sem estalo")
 {
     const std::vector<double> output = mixStepRun ({ 512 });
 
-    double maxStep = 0.0;
-    for (std::size_t n = oneSecond + Saturator::latency; n < oneSecond + oneSecond / 10; ++n)
-        maxStep = std::max (maxStep, std::abs (output[n] - output[n - 1]));
-    REQUIRE (maxStep <= 0.07);
+    const double transMax = maxCurvature (output, oneSecond, oneSecond + oneSecond / 10);
+    const double steadyMax = maxCurvature (output, oneSecond + oneSecond / 2, 2 * oneSecond);
+    REQUIRE (transMax <= 1.5 * steadyMax);
 }
 
 TEST_CASE ("mudança de drive sem estalo")
@@ -190,18 +215,17 @@ TEST_CASE ("mudança de drive sem estalo")
 
     Saturator saturator;
     saturator.prepare (fs, 2);
-    saturator.setDriveDecibels (18.0f);
+    saturator.setDriveDecibels (6.0f);
     saturator.setMix (1.0f);
 
     std::vector<double> output;
     renderRange (saturator, input, 2, 0, oneSecond, { 512 }, output);
-    saturator.setDriveDecibels (30.0f);
+    saturator.setDriveDecibels (18.0f);
     renderRange (saturator, input, 2, oneSecond, 2 * oneSecond, { 512 }, output);
 
-    double maxStep = 0.0;
-    for (std::size_t n = oneSecond + Saturator::latency; n < oneSecond + oneSecond / 10; ++n)
-        maxStep = std::max (maxStep, std::abs (output[n] - output[n - 1]));
-    REQUIRE (maxStep <= 0.07);
+    const double transMax = maxCurvature (output, oneSecond, oneSecond + oneSecond / 10);
+    const double steadyMax = maxCurvature (output, oneSecond + oneSecond / 2, 2 * oneSecond);
+    REQUIRE (transMax <= 1.5 * steadyMax);
 }
 
 TEST_CASE ("saturação: bloco variável dá o mesmo resultado")
