@@ -44,4 +44,12 @@ build\finale_curvegen_artefacts\Release\finale_curvegen.exe
 
 A ferramenta regenera `Source/DSP/GenreCurveTable.h` (só se algo mudou). Depois, recompile o plugin. Outros caminhos: `finale_curvegen <pastaDeReferencias> <arquivoDeSaida>`.
 
+Para medir a CPU do plugin (cadeia inteira, por taxa, bloco e configuração), a partir da raiz do repo:
+
+```
+build\Release\finale_benchmark.exe
+```
+
+Os números de referência e a análise estão em `docs/decisoes.md` (Tecnologia).
+
 Pra testar na DAW, copie `build/finale_plugin_artefacts/Release/VST3/Finale.vst3` para `C:\Program Files\Common Files\VST3\` e reescaneie os plugins. Cada PR também gera um build pronto pra baixar na aba **Actions** do GitHub.
