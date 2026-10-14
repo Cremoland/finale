@@ -281,7 +281,7 @@ void FinaleProcessor::setStateInformation (const void* data, int sizeInBytes)
             pendingCorrectionDb.store (
                 static_cast<float> (static_cast<double> (state.getProperty ("assistantCorrectionDb"))));
 
-        // Projetos de antes do assistente tonal não têm as propriedades: a correção tonal fica em 0.
+        // Projetos de antes do assistente tonal não têm as propriedades: a correção tonal volta a 0.
         bool hasTonal = true;
         for (int b = 0; b < 4; ++b)
             hasTonal = hasTonal && state.hasProperty ("tonalCorrectionDb" + juce::String (b));
@@ -291,8 +291,13 @@ void FinaleProcessor::setStateInformation (const void* data, int sizeInBytes)
                 pendingTonalDb[b].store (static_cast<float> (static_cast<double> (state.getProperty (
                                              "tonalCorrectionDb" + juce::String (static_cast<int> (b))))),
                     std::memory_order_relaxed);
-            hasPendingTonal.store (true, std::memory_order_release);
         }
+        else
+        {
+            for (auto& pending : pendingTonalDb)
+                pending.store (0.0f, std::memory_order_relaxed);
+        }
+        hasPendingTonal.store (true, std::memory_order_release);
 
         parameters.replaceState (state);
     }

@@ -387,3 +387,36 @@ TEST_CASE ("estado: correção tonal sobrevive ao salvar e abrir o projeto")
             CHECK (restored[band] == Approx (correction[band]).margin (1.0e-4));
     }
 }
+
+TEST_CASE ("estado: projeto antigo zera a correção tonal")
+{
+    const juce::ScopedJuceInitialiser_GUI juceInit;
+    FinaleProcessor a;
+    setParam (a, finale::ParamIDs::assistant, 2.0f); // Auto
+    a.prepareToPlay (48000.0, 512);
+    runDull (a, 30.0);
+    REQUIRE (a.getTonalCorrectionDb()[3] > 3.0f);
+
+    // Congelar antes de salvar: o silêncio não move a correção, então um zero depois prova o reset.
+    setParam (a, finale::ParamIDs::assistant, 3.0f);
+    juce::MemoryBlock state;
+    a.getStateInformation (state);
+
+    // Estado de projeto antigo: sem as propriedades da correção tonal.
+    auto xml = juce::AudioProcessor::getXmlFromBinary (state.getData(), static_cast<int> (state.getSize()));
+    REQUIRE (xml != nullptr);
+    for (int b = 0; b < 4; ++b)
+        xml->removeAttribute ("tonalCorrectionDb" + juce::String (b));
+    juce::MemoryBlock oldState;
+    juce::AudioProcessor::copyXmlToBinary (*xml, oldState);
+
+    // Mesma instância: a correção de antes não pode sobrar.
+    a.setStateInformation (oldState.getData(), static_cast<int> (oldState.getSize()));
+    juce::AudioBuffer<float> silence (2, 512);
+    silence.clear();
+    juce::MidiBuffer midi;
+    a.processBlock (silence, midi);
+
+    for (float c : a.getTonalCorrectionDb())
+        CHECK (c == 0.0f);
+}
