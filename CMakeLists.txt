@@ -86,7 +86,10 @@ if(FINALE_BUILD_TESTS)
         tests/AbCompareTests.cpp
         tests/LoudnessAssistantTests.cpp
         tests/TonalEqTests.cpp
-        tests/BandAnalyzerTests.cpp)
+        tests/BandAnalyzerTests.cpp
+        tests/CurveGenTests.cpp)
+    target_include_directories(finale_tests PRIVATE tools)
+    target_compile_definitions(finale_tests PRIVATE FINALE_SOURCE_DIR="${CMAKE_SOURCE_DIR}")
     target_link_libraries(finale_tests PRIVATE finale_dsp Catch2::Catch2WithMain)
     add_test(NAME dsp COMMAND finale_tests)
 endif()
