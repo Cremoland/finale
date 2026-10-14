@@ -105,3 +105,5 @@ setMode: entrar em analyze vindo de outro modo zera tempoValido e marca a análi
 ## Fora deste plano
 
 Tonal, dinâmica e imagem estéreo (#20) · reset do integrado do medidor ao começar a análise · indicar na UI quando a análise terminou · τ e duração configuráveis.
+
+Analyze mede os 20 s a partir do momento em que é ligado — use na parte mais alta da música.
