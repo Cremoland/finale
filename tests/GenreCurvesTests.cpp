@@ -3,26 +3,14 @@
 #include <catch2/catch_approx.hpp>
 #include <catch2/catch_test_macros.hpp>
 
-#include <cmath>
 #include <limits>
 
 using Catch::Approx;
 using finale::dsp::genreEqGains;
+using finale::dsp::genreEqTable;
 
 namespace
 {
-// Mesma tabela de GenreCurves.h, escrita à mão: o teste não deve depender da implementação.
-constexpr float table[8][4] = {
-    { +2.5f, -1.0f, +0.5f, +1.5f }, // Trap
-    { +2.0f, -0.5f, +1.0f, +0.5f }, // Rap/Boom bap
-    { +1.5f, +0.5f, -1.0f, -3.0f }, // Lo-fi
-    { +3.0f, -1.5f, +1.0f, +1.0f }, // Funk BR
-    { +2.0f, -1.0f, +0.5f, +1.5f }, // House
-    { +2.0f, -1.5f, +1.0f, +2.5f }, // EDM
-    { +1.0f, -1.0f, +1.5f, +2.0f }, // Pop
-    { +1.0f, 0.0f, +1.5f, +1.0f }, // Rock
-};
-
 void requireFlat (const std::array<float, 4>& g)
 {
     for (float v : g)
@@ -48,7 +36,7 @@ TEST_CASE ("amount 100 % dá a curva do gênero")
     {
         const auto gains = genreEqGains (1.0f, g, 1.0f);
         for (size_t b = 0; b < 4; ++b)
-            REQUIRE (gains[b] == Approx (table[g][b]).margin (1e-6));
+            REQUIRE (gains[b] == Approx (genreEqTable[g][b]).margin (1e-6));
     }
 }
 
@@ -82,5 +70,20 @@ TEST_CASE ("curvas: entradas inválidas")
     SECTION ("amount negativo é plano")
     {
         requireFlat (genreEqGains (-1.0f, 3, 1.0f));
+    }
+
+    SECTION ("eqQty NaN é plano")
+    {
+        requireFlat (genreEqGains (1.0f, 3, nan));
+    }
+
+    SECTION ("eqQty +inf é plano")
+    {
+        requireFlat (genreEqGains (1.0f, 3, std::numeric_limits<float>::infinity()));
+    }
+
+    SECTION ("eqQty negativo é plano")
+    {
+        requireFlat (genreEqGains (1.0f, 3, -1.0f));
     }
 }

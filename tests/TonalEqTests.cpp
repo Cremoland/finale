@@ -1,4 +1,3 @@
-#include "DSP/Biquad.h"
 #include "DSP/TonalEq.h"
 
 #include <catch2/catch_approx.hpp>
@@ -167,17 +166,29 @@ TEST_CASE ("ganhos limitados")
 TEST_CASE ("troca de curva sem estalo")
 {
     const double fs = 48000.0;
-    const std::vector<float> in = makeSine (fs, 1000.0, 0.25, 2 * 48000);
+    // Frequência central de cada banda: low shelf 90 Hz, peak 300 Hz, peak 3 kHz, high shelf 10 kHz.
+    const std::array<double, 4> centers { 90.0, 300.0, 3000.0, 10000.0 };
 
-    TonalEq eq;
-    eq.setGainsDecibels (Gains { 0.0f, 0.0f, 0.0f, 0.0f });
-    eq.prepare (fs, 2);
+    for (int band = 0; band < 4; ++band)
+    {
+        INFO ("banda " << band << " (" << centers[static_cast<std::size_t> (band)] << " Hz)");
 
-    const std::vector<float> out = runEq (eq, in, { kBlock }, 48000, Gains { 6.0f, -6.0f, 6.0f, 6.0f });
+        // Só a banda testada troca, de 0 dB para +6 dB em 1.0 s; as outras ficam em 0 dB.
+        Gains after { 0.0f, 0.0f, 0.0f, 0.0f };
+        after[static_cast<std::size_t> (band)] = 6.0f;
 
-    const double transient = maxCurvature (out, 48000, 52800); // [1.0 s, 1.1 s]
-    const double steady = maxCurvature (out, 72000, 96000); // [1.5 s, 2.0 s]
-    REQUIRE (transient <= 1.5 * steady);
+        const std::vector<float> in = makeSine (fs, centers[static_cast<std::size_t> (band)], 0.25, 2 * 48000);
+
+        TonalEq eq;
+        eq.setGainsDecibels (Gains { 0.0f, 0.0f, 0.0f, 0.0f });
+        eq.prepare (fs, 2);
+
+        const std::vector<float> out = runEq (eq, in, { kBlock }, 48000, after);
+
+        const double transient = maxCurvature (out, 48000, 52800); // [1.0 s, 1.1 s]
+        const double steady = maxCurvature (out, 72000, 96000); // [1.5 s, 2.0 s]
+        CHECK (transient <= 1.5 * steady);
+    }
 }
 
 TEST_CASE ("eq: bloco variável dá o mesmo resultado")

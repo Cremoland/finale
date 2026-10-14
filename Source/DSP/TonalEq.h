@@ -59,8 +59,9 @@ public:
         int pos = 0;
         while (pos < numSamples)
         {
-            // Os sub-blocos são alinhados à posição absoluta (múltiplos de 32), então o resultado
-            // não depende de como o host divide os blocos.
+            // Os sub-blocos são alinhados à posição absoluta (múltiplos de 32), então a suavização
+            // não depende de como o host divide os blocos. Já um alvo novo (setGainsDecibels) só vale
+            // a partir do bloco do host em que foi chamado, igual aos outros blocos da cadeia.
             if (phase == 0)
                 updateBands();
 

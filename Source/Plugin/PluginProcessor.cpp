@@ -2,7 +2,9 @@
 #include "Plugin/PluginEditor.h"
 
 #include <algorithm>
+#include <array>
 #include <cmath>
+#include <cstddef>
 #include <limits>
 
 namespace finale
@@ -30,6 +32,17 @@ FinaleProcessor::FinaleProcessor() :
 
 juce::AudioProcessorValueTreeState::ParameterLayout FinaleProcessor::createParameterLayout()
 {
+    // A ordem dos gêneros é permanente: projetos salvos guardam o índice, não o nome.
+    // Deve bater com as linhas de finale::dsp::genreEqTable (o static_assert confere só a quantidade).
+    static constexpr std::array<const char*, 8> genreNames { "Trap", "Rap/Boom bap", "Lo-fi", "Funk BR", "House", "EDM",
+        "Pop", "Rock" };
+    static_assert (genreNames.size() == static_cast<std::size_t> (finale::dsp::numGenres),
+        "genreNames deve ter uma entrada por linha de genreEqTable");
+
+    juce::StringArray genreOptions;
+    for (const char* name : genreNames)
+        genreOptions.add (name);
+
     return {
         std::make_unique<juce::AudioParameterFloat> (juce::ParameterID { ParamIDs::gain, 1 }, "Gain",
             juce::NormalisableRange<float> (-24.0f, 12.0f, 0.1f), 0.0f,
@@ -44,8 +57,8 @@ juce::AudioProcessorValueTreeState::ParameterLayout FinaleProcessor::createParam
             juce::NormalisableRange<float> (-16.0f, -5.0f, 0.5f), -9.0f,
             juce::AudioParameterFloatAttributes().withLabel ("LUFS")),
         // A ordem das opções é permanente: projetos salvos guardam o índice, não o nome.
-        std::make_unique<juce::AudioParameterChoice> (juce::ParameterID { ParamIDs::genre, 1 }, "Genre",
-            juce::StringArray { "Trap", "Rap/Boom bap", "Lo-fi", "Funk BR", "House", "EDM", "Pop", "Rock" }, 6),
+        std::make_unique<juce::AudioParameterChoice> (
+            juce::ParameterID { ParamIDs::genre, 1 }, "Genre", genreOptions, 6),
         // A ordem das opções é permanente: projetos salvos guardam o índice, não o nome.
         std::make_unique<juce::AudioParameterChoice> (juce::ParameterID { ParamIDs::character, 1 }, "Character",
             juce::StringArray { "Clean", "Warm", "Punch", "Wide", "DOOM" }, 0),
