@@ -29,7 +29,7 @@ Plugin de masterização "de um knob" no estilo Soundgoodizer, com assistente qu
 - **Assistente tonal (14/10):**
   - Usa o mesmo seletor Analisar/Auto/Congelar do loudness, e Off desliga os dois.
   - Mede a forma espectral do original (4 bandas, antes do EQ, só acima de −50 LUFS short-term, memória de 10 s) e puxa os ganhos do EQ tonal na direção de uma forma neutra, até ±6 dB por banda, escalados por amount × EQ. A curva do gênero continua por cima.
-  - Forma neutra: espectro médio de pop dos anos 1990 (Adrian & Bitzer, DAGA 2014), +5 / +1,5 / −1,5 / −5 dB em 90 Hz / 300 Hz / 3 kHz / 10 kHz em relação à média. Não há curva tonal publicada por gênero (`docs/pesquisa/2026-10-14-parametros-por-genero.md`).
+  - Forma neutra: espectro médio de pop dos anos 1990 (Adrian & Bitzer, DAGA 2014, fig. 2, lido na curva), +5 / +1,5 / −1,5 / −5 dB em 90 Hz / 300 Hz / 3 kHz / 10 kHz em relação à média. Não há curva tonal publicada por gênero (`docs/pesquisa/2026-10-14-parametros-por-genero.md`).
   - Próximo passo: alvo por gênero medido nas referências pelo `finale_curvegen`.
 
 ## Interface

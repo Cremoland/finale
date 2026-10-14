@@ -20,9 +20,12 @@ public:
     using Mode = LoudnessAssistant::Mode;
     static constexpr int numBands = 4;
 
-    // Forma neutra (energia por oitava em dB, relativa à média das 4 bandas de 90 Hz, 300 Hz, 3 kHz e 10 kHz):
-    // espectro médio de pop dos anos 1990, Adrian & Bitzer, "Erstellung und Untersuchung von Langzeitspektren…",
-    // DAGA 2014, fig. 2 (cai ~6 dB/oitava em densidade entre 100 Hz e 10 kHz; ruído rosa cai 3).
+    // Forma neutra (energia por oitava em dB, relativa à média das 4 bandas; rótulos nominais 90 Hz, 300 Hz, 3 kHz,
+    // 10 kHz): espectro médio de pop dos anos 1990, Adrian & Bitzer, "Erstellung und Untersuchung von
+    // Langzeitspektren…", DAGA 2014, fig. 2, lido na curva: densidade ≈ −61 dB em 100 Hz, −70 em 300 Hz, −83 em 3 kHz e
+    // −92 em 10 kHz
+    // (~4,7 dB/oitava; o texto do artigo arredonda para ~6). Somando 10·log10 (f) (energia por oitava) e tirando a
+    // média: +5,6 / +1,4 / −1,6 / −5,4, arredondado. As bandas reais do BandAnalyzer são mais largas que esses pontos.
     // shortcut: uma forma só para todos os gêneros, lida na figura (±2 dB); trocar pela forma medida das
     // referências de cada gênero (finale_curvegen) quando houver.
     static constexpr std::array<float, numBands> neutralShapeDb { 5.0f, 1.5f, -1.5f, -5.0f };
