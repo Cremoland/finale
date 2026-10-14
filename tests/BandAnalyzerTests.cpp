@@ -22,20 +22,21 @@ using Shape = std::array<float, 4>;
 
 // Soma de senos de mesma amplitude (1/N, então a soma fica dentro de ±1) com fase aleatória fixa
 // (std::mt19937 {7}). Cada seno sai de uma recorrência de fase em double, que é bem mais barata que
-// chamar sin() 2000 × 480000 vezes; o erro acumulado fica abaixo de 1e-10.
-std::vector<float> sumOfSines (const std::vector<double>& frequencies)
+// chamar sin() 2000 × 480000 vezes; o erro acumulado fica abaixo de 1e-10. Dura 10 s na taxa fs.
+std::vector<float> sumOfSines (const std::vector<double>& frequencies, double fs = kFs)
 {
     std::mt19937 rng { 7 };
     std::uniform_real_distribution<double> phaseDist (0.0, 2.0 * std::numbers::pi);
     const double amplitude = 1.0 / static_cast<double> (frequencies.size());
+    const std::size_t total = static_cast<std::size_t> (10.0 * fs);
 
-    std::vector<double> acc (static_cast<std::size_t> (kTotal), 0.0);
+    std::vector<double> acc (total, 0.0);
     for (const double frequency : frequencies)
     {
         const double phase = phaseDist (rng);
         double re = std::cos (phase);
         double im = std::sin (phase);
-        const double w = 2.0 * std::numbers::pi * frequency / kFs;
+        const double w = 2.0 * std::numbers::pi * frequency / fs;
         const double cw = std::cos (w);
         const double sw = std::sin (w);
 
@@ -85,10 +86,10 @@ const std::vector<float>& pinkSignal()
     return signal;
 }
 
-Shape analyse (const std::vector<float>& signal)
+Shape analyse (const std::vector<float>& signal, double fs = kFs)
 {
     BandAnalyzer analyzer;
-    analyzer.prepare (kFs);
+    analyzer.prepare (fs);
     analyzer.process (signal.data(), static_cast<int> (signal.size()));
     return analyzer.getShapeDb();
 }
@@ -104,8 +105,20 @@ TEST_CASE ("rosa dá forma plana")
 TEST_CASE ("branco sobe com a frequência")
 {
     const Shape shape = analyse (sumOfSines (whiteFrequencies()));
-    // Energia proporcional à largura da banda: 10·log10(10000 / 90) dB.
-    CHECK (shape[3] - shape[0] == Catch::Approx (10.0 * std::log10 (10000.0 / 90.0)).margin (1.5));
+    // Densidade por oitava do branco: energia da banda ∝ largura linear efetiva; divide-se pela largura
+    // efetiva em oitavas. Nominal, banda 0 ≈ 43.5 → 16.4 dB e banda 3 ≈ 8619 → 39.4 dB (diferença 23.0);
+    // com a resposta real dos filtros, a diferença medida é 22.93 dB.
+    CHECK (shape[3] - shape[0] == Catch::Approx (23.0).margin (1.5));
+}
+
+TEST_CASE ("analisador: outros sample rates")
+{
+    for (const double fs : { 44100.0, 96000.0 })
+    {
+        const Shape shape = analyse (sumOfSines (pinkFrequencies(), fs), fs);
+        for (std::size_t b = 0; b < shape.size(); ++b)
+            CHECK (shape[b] == Catch::Approx (0.0).margin (0.75));
+    }
 }
 
 TEST_CASE ("volume não muda a forma")
