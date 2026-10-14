@@ -1,5 +1,6 @@
 #pragma once
 
+#include "DSP/LoudnessMeter.h"
 #include "DSP/TruePeakLimiter.h"
 
 #include <algorithm>
@@ -39,6 +40,16 @@ public:
             matchTargetDb = std::clamp (db, -24.0f, 24.0f);
     }
 
+    // Iguala o original ao processado pelos LUFS de curto prazo de cada lado. Abaixo do
+    // piso (silêncio) ou não-finito, o alvo anterior é mantido: o medidor não tem o que
+    // comparar, e zerar o ganho daria um salto ao voltar o sinal.
+    void setMatchFromLufs (float inputLufs, float outputLufs)
+    {
+        if (std::isfinite (inputLufs) && std::isfinite (outputLufs) && inputLufs > LoudnessMeter::floorLufs
+            && outputLufs > LoudnessMeter::floorLufs)
+            setMatchGainDecibels (outputLufs - inputLufs);
+    }
+
     void setCeilingDecibels (float db)
     {
         ceilingDb = db;
@@ -65,6 +76,8 @@ public:
         // Suavizadores começam no alvo: nada de rampa ao preparar.
         crossfade = compareTarget;
         matchDb = matchTargetDb;
+        linearGain = std::pow (10.0f, matchDb / 20.0f);
+        linearGainDb = matchDb;
 
         delayLine.assign (static_cast<std::size_t> (numPrepared) * static_cast<std::size_t> (delaySamples), 0.0f);
         delayPos = 0;
@@ -103,11 +116,22 @@ private:
         // Uma passada por amostra: a e g avançam uma vez e valem para todos os canais.
         for (int n = 0; n < length; ++n)
         {
+            // O one-pole nunca chega ao alvo. Encaixar em 1e-6 faz a mistura voltar exata
+            // (a == 0 pula a conta) e tira o pow do laço depois que o ganho assenta.
             crossfade = compareTarget + (crossfade - compareTarget) * crossfadeCoef;
+            if (std::abs (crossfade - compareTarget) < snapEpsilon)
+                crossfade = compareTarget;
             matchDb = matchTargetDb + (matchDb - matchTargetDb) * gainCoef;
+            if (std::abs (matchDb - matchTargetDb) < snapEpsilon)
+                matchDb = matchTargetDb;
             fade[static_cast<std::size_t> (n)] = crossfade;
 
-            const float gain = std::pow (10.0f, matchDb / 20.0f);
+            if (matchDb != linearGainDb)
+            {
+                linearGain = std::pow (10.0f, matchDb / 20.0f);
+                linearGainDb = matchDb;
+            }
+            const float gain = linearGain;
 
             for (int ch = 0; ch < active; ++ch)
             {
@@ -139,8 +163,17 @@ private:
             for (int n = 0; n < length; ++n)
             {
                 const auto i = static_cast<std::size_t> (n);
+                const float a = fade[i];
                 const float w = finiteOrZero (wet[ch][offset + n]);
-                wet[ch][offset + n] = w + fade[i] * (scratch[c * block + i] - w);
+
+                // Nas pontas do crossfade não há conta: fora do original, o processado
+                // passa como está (só não-finito vira zero); dentro, o original puro.
+                if (a == 0.0f)
+                    wet[ch][offset + n] = w;
+                else if (a == 1.0f)
+                    wet[ch][offset + n] = scratch[c * block + i];
+                else
+                    wet[ch][offset + n] = w + a * (scratch[c * block + i] - w);
             }
         }
     }
@@ -157,6 +190,13 @@ private:
     float matchDb = 0.0f;
     float crossfadeCoef = 0.0f;
     float gainCoef = 0.0f;
+
+    // Ganho linear em cache: recalculado só quando matchDb muda.
+    float linearGain = 1.0f;
+    float linearGainDb = 0.0f;
+
+    // Distância abaixo da qual o suavizador é considerado assentado no alvo.
+    static constexpr float snapEpsilon = 1e-6f;
 
     int numPrepared = 0;
     int blockCapacity = 0;

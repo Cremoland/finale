@@ -5,8 +5,10 @@
 #include <catch2/catch_test_macros.hpp>
 
 #include <algorithm>
+#include <bit>
 #include <cmath>
 #include <cstddef>
+#include <cstdint>
 #include <limits>
 #include <random>
 #include <vector>
@@ -66,6 +68,15 @@ double levelDb (const std::vector<float>& x, std::size_t from, std::size_t to)
     for (std::size_t i = from; i < to; ++i)
         sum += static_cast<double> (x[i]) * static_cast<double> (x[i]);
     return 20.0 * std::log10 (std::sqrt (sum / static_cast<double> (to - from)));
+}
+
+// Quantas amostras em [from, to) diferem bit a bit (0.0 e -0.0 contam como diferentes).
+std::size_t bitDiffs (const std::vector<float>& a, const std::vector<float>& b, std::size_t from, std::size_t to)
+{
+    std::size_t diffs = 0;
+    for (std::size_t i = from; i < to; ++i)
+        diffs += std::bit_cast<std::uint32_t> (a[i]) != std::bit_cast<std::uint32_t> (b[i]) ? 1 : 0;
+    return diffs;
 }
 
 // Maior |segunda diferença| em [from, to): mede saltos e cliques.
@@ -138,12 +149,31 @@ TEST_CASE ("compare desligado não mexe no processado")
     Channels out = wet;
     runRange (ab, dry, out, 0, n, { blockSize });
 
-    int diffs = 0;
     for (std::size_t ch = 0; ch < out.size(); ++ch)
-        for (std::size_t i = 0; i < n; ++i)
-            diffs += out[ch][i] != wet[ch][i] ? 1 : 0;
+        REQUIRE (bitDiffs (out[ch], wet[ch], 0, n) == 0);
+}
 
-    REQUIRE (diffs == 0);
+TEST_CASE ("ab: desligar o compare volta ao processado exato")
+{
+    // Com ruído o erro some sozinho (a soma em float absorve o resíduo), mas com silêncio
+    // o resíduo do crossfade aparece na saída. Os dois têm que ficar exatos.
+    const std::size_t n = 3 * oneSecond;
+    const Channels dry = stereo (noise (1, n));
+
+    for (const Channels& wet : { stereo (noise (2, n)), stereo (zeros (n)) })
+    {
+        AbCompare ab;
+        ab.prepare (sampleRate, 2, dryDelay, static_cast<int> (blockSize));
+
+        Channels out = wet;
+        ab.setCompare (true);
+        runRange (ab, dry, out, 0, oneSecond, { blockSize });
+        ab.setCompare (false);
+        runRange (ab, dry, out, oneSecond, n, { blockSize });
+
+        for (std::size_t ch = 0; ch < out.size(); ++ch)
+            REQUIRE (bitDiffs (out[ch], wet[ch], 2 * oneSecond, n) == 0);
+    }
 }
 
 TEST_CASE ("compare ligado toca o original alinhado")
@@ -292,4 +322,57 @@ TEST_CASE ("ab: bloco maior que o buffer")
 {
     // Prepara com 64 amostras e processa blocos de 512: o alinhamento tem que se manter.
     requireAlignedOriginal (2, 64);
+}
+
+TEST_CASE ("ab: igualação pelos LUFS")
+{
+    AbCompare ab;
+    ab.setCompare (true);
+    ab.setMatchFromLufs (-20.0f, -14.0f);
+    ab.prepare (sampleRate, 2, dryDelay, static_cast<int> (blockSize));
+
+    const std::size_t n = 2 * oneSecond;
+    const Channels dry = stereo (sine (1000.0, 0.1f, n));
+    Channels out = stereo (zeros (n));
+    runRange (ab, dry, out, 0, n, { blockSize });
+
+    const double gainDb = levelDb (out[0], n - oneSecond, n) - levelDb (dry[0], n - oneSecond, n);
+    REQUIRE (gainDb == Catch::Approx (6.02).margin (0.05));
+}
+
+TEST_CASE ("ab: LUFS no piso mantém o ganho")
+{
+    AbCompare ab;
+    ab.setCompare (true);
+    ab.prepare (sampleRate, 2, dryDelay, static_cast<int> (blockSize));
+
+    const std::size_t n = 2 * oneSecond;
+    const Channels dry = stereo (sine (1000.0, 0.1f, n));
+    Channels out = stereo (zeros (n));
+
+    ab.setMatchFromLufs (-20.0f, -14.0f);
+    runRange (ab, dry, out, 0, oneSecond, { blockSize });
+    ab.setMatchFromLufs (-100.0f, -14.0f);
+    ab.setMatchFromLufs (-20.0f, -100.0f);
+    runRange (ab, dry, out, oneSecond, n, { blockSize });
+
+    const std::size_t from = n - oneSecond / 2;
+    const double gainDb = levelDb (out[0], from, n) - levelDb (dry[0], from, n);
+    REQUIRE (gainDb == Catch::Approx (6.02).margin (0.05));
+}
+
+TEST_CASE ("ab: saída mais baixa que a entrada")
+{
+    AbCompare ab;
+    ab.setCompare (true);
+    ab.setMatchFromLufs (-10.0f, -16.0f);
+    ab.prepare (sampleRate, 2, dryDelay, static_cast<int> (blockSize));
+
+    const std::size_t n = 2 * oneSecond;
+    const Channels dry = stereo (sine (1000.0, 0.1f, n));
+    Channels out = stereo (zeros (n));
+    runRange (ab, dry, out, 0, n, { blockSize });
+
+    const double gainDb = levelDb (out[0], n - oneSecond, n) - levelDb (dry[0], n - oneSecond, n);
+    REQUIRE (gainDb == Catch::Approx (-6.02).margin (0.05));
 }

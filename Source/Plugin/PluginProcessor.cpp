@@ -155,10 +155,7 @@ void FinaleProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::Midi
         outputIntegratedLufs.store (outputMeter.getIntegratedLufs(), std::memory_order_relaxed);
 
         // Igualação: o original entra no mesmo LUFS de curto prazo que a saída processada.
-        const float inLufs = inputMeter.getShortTermLufs();
-        const float outLufs = outputMeter.getShortTermLufs();
-        if (inLufs > dsp::LoudnessMeter::floorLufs && outLufs > dsp::LoudnessMeter::floorLufs)
-            abCompare.setMatchGainDecibels (outLufs - inLufs);
+        abCompare.setMatchFromLufs (inputMeter.getShortTermLufs(), outputMeter.getShortTermLufs());
 
         abCompare.setCompare (compare);
         abCompare.setCeilingDecibels (ceilingDb);
