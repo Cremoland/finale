@@ -77,7 +77,9 @@ if(FINALE_BUILD_TESTS)
         tests/KWeightingTests.cpp
         tests/LoudnessMeterTests.cpp
         tests/CrossoverTests.cpp
-        tests/MultibandCompressorTests.cpp)
+        tests/MultibandCompressorTests.cpp
+        tests/OversamplerTests.cpp
+        tests/SaturatorTests.cpp)
     target_link_libraries(finale_tests PRIVATE finale_dsp Catch2::Catch2WithMain)
     add_test(NAME dsp COMMAND finale_tests)
 endif()

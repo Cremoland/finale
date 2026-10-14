@@ -13,6 +13,8 @@ FinaleProcessor::FinaleProcessor() :
     gainParam = parameters.getRawParameterValue (ParamIDs::gain);
     ceilingParam = parameters.getRawParameterValue (ParamIDs::ceiling);
     compressionParam = parameters.getRawParameterValue (ParamIDs::compression);
+    characterParam = parameters.getRawParameterValue (ParamIDs::character);
+    saturationParam = parameters.getRawParameterValue (ParamIDs::saturation);
 }
 
 juce::AudioProcessorValueTreeState::ParameterLayout FinaleProcessor::createParameterLayout()
@@ -39,6 +41,9 @@ juce::AudioProcessorValueTreeState::ParameterLayout FinaleProcessor::createParam
         std::make_unique<juce::AudioParameterFloat> (juce::ParameterID { ParamIDs::compression, 1 }, "Compression",
             juce::NormalisableRange<float> (0.0f, 100.0f, 0.1f), 0.0f,
             juce::AudioParameterFloatAttributes().withLabel ("%")),
+        std::make_unique<juce::AudioParameterFloat> (juce::ParameterID { ParamIDs::saturation, 1 }, "Saturation",
+            juce::NormalisableRange<float> (0.0f, 100.0f, 0.1f), 0.0f,
+            juce::AudioParameterFloatAttributes().withLabel ("%")),
     };
 }
 
@@ -49,9 +54,10 @@ void FinaleProcessor::prepareToPlay (double sampleRate, int)
 
     compressor.prepare (sampleRate, std::max (1, getTotalNumOutputChannels()));
     limiter.prepare (sampleRate, std::max (1, getTotalNumOutputChannels()));
+    saturator.prepare (sampleRate, std::max (1, getTotalNumOutputChannels()));
     outputMeter.prepare (sampleRate, std::max (1, getTotalNumOutputChannels()));
     limiter.setCeilingDecibels (ceilingParam->load());
-    setLatencySamples (limiter.getLatencySamples());
+    setLatencySamples (limiter.getLatencySamples() + dsp::Saturator::latency);
 }
 
 bool FinaleProcessor::isBusesLayoutSupported (const BusesLayout& layouts) const
@@ -71,6 +77,15 @@ void FinaleProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::Midi
     // shortcut: 0–100 % vira razão 1:1–4:1; o knob principal (#11) e os presets vão mapear isso depois
     compressor.setRatio (1.0f + 3.0f * compressionParam->load() / 100.0f);
     compressor.process (buffer.getArrayOfWritePointers(), buffer.getNumChannels(), buffer.getNumSamples());
+
+    // A ordem das opções de character é permanente: 4 é DOOM.
+    constexpr int characterDoom = 4;
+    const bool doom = juce::roundToInt (characterParam->load()) == characterDoom;
+    // shortcut: drive fixo (6 dB normal, 18 dB no DOOM) e sem compensação de volume; presets, Auto (#9) e o knob amount
+    // (#11) vão ajustar
+    saturator.setDriveDecibels (doom ? 18.0f : 6.0f);
+    saturator.setMix (saturationParam->load() / 100.0f);
+    saturator.process (buffer.getArrayOfWritePointers(), buffer.getNumChannels(), buffer.getNumSamples());
 
     limiter.setCeilingDecibels (ceilingParam->load());
     limiter.process (buffer.getArrayOfWritePointers(), buffer.getNumChannels(), buffer.getNumSamples());
