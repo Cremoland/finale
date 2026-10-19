@@ -1,0 +1,640 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Finale · Protótipo v7 Noir editorial</title>
+<!--
+  Direção: "Noir editorial". Fundo escuro e knob com brilho do Noir (v1), organizado como página editorial do Papel (v3):
+  o texto em marfim faz o papel do branco. Listas tipográficas, assistente sublinhado, medidor horizontal com triângulo do alvo.
+  Paleta: tokens em :root (--bg #0E1116, --surface #151A21, --surface-2 #1E242D, --text marfim #F2EDE3, --text-dim #9C9686,
+  --accent #4FD1C5, --accent-2 #E9DFC8, --ok, --warn #F5B84B, --danger #FF5C6C).
+  Fontes: Fraunces (wordmark), IBM Plex Sans (interface) e IBM Plex Mono (números), via Google Fonts.
+  Só formas vetoriais, gradientes lineares/radiais e sombras simples. Sem backdrop-filter, imagens ou 3D,
+  para portar depois para juce::Path e ColourGradient.
+-->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500..700&family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg: #0E1116;
+  --surface: #151A21;
+  --surface-2: #1E242D;
+  --text: #F2EDE3;
+  --text-dim: #9C9686;
+  --accent: #4FD1C5;
+  --accent-2: #E9DFC8;
+  --ok: #4FD1C5;
+  --warn: #F5B84B;
+  --danger: #FF5C6C;
+  --line: rgba(242, 237, 227, 0.10);
+  --line-strong: rgba(242, 237, 227, 0.22);
+  --serif: "Fraunces", Georgia, serif;
+  --sans: "IBM Plex Sans", "Segoe UI", system-ui, sans-serif;
+  --mono: "IBM Plex Mono", Consolas, ui-monospace, monospace;
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+body {
+  min-height: 100vh;
+  padding: 48px 16px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 16px;
+  background: #1e1e1e;
+  color: var(--text);
+  font-family: var(--sans);
+  -webkit-font-smoothing: antialiased;
+}
+button { font-family: var(--sans); }
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
+.mono { font-family: var(--mono); font-variant-numeric: tabular-nums; }
+.kicker {
+  font-size: 11px;
+  line-height: 16px;
+  font-weight: 600;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--text-dim);
+}
+.caption { font-size: 12px; line-height: 16px; color: #A3A3A3; }
+
+/* Janela do plugin: 820 x 500 */
+.win {
+  --knob: 240px;
+  position: relative;
+  flex: none;
+  width: 820px;
+  height: 500px;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  background:
+    radial-gradient(560px 380px at 20% 42%, rgba(79, 209, 197, 0.08), rgba(79, 209, 197, 0) 70%),
+    var(--bg);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  box-shadow: 0 24px 48px rgba(0, 0, 0, 0.45);
+}
+.win.adv-open { --knob: 144px; }
+
+/* ---------- Topo ---------- */
+.top {
+  flex: none;
+  height: 84px;
+  padding: 16px 32px 0;
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+}
+.brand { display: flex; align-items: flex-start; gap: 28px; }
+.wordmark {
+  font-family: var(--serif);
+  font-weight: 600;
+  font-size: 36px;
+  line-height: 40px;
+  letter-spacing: 0.06em;
+  color: var(--text);
+  font-optical-sizing: auto;
+}
+.ab { display: flex; flex-direction: column; gap: 6px; padding-top: 4px; }
+.seg {
+  align-self: flex-start;
+  display: inline-flex;
+  gap: 2px;
+  padding: 2px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 999px;
+}
+.seg button {
+  height: 24px;
+  padding: 0 12px;
+  border: 0;
+  border-radius: 999px;
+  background: transparent;
+  font: 500 12px/20px var(--sans);
+  color: var(--text-dim);
+  cursor: pointer;
+}
+.seg button[aria-checked="true"] {
+  background: var(--surface-2);
+  color: var(--text);
+  font-weight: 600;
+  box-shadow: inset 0 0 0 1px var(--accent);
+}
+.sub { font-size: 11px; line-height: 14px; color: var(--text-dim); padding-left: 4px; }
+
+.assist { display: flex; flex-direction: column; align-items: flex-end; gap: 6px; }
+.opts { display: flex; gap: 20px; }
+.opts button {
+  padding: 2px 0 4px;
+  border: 0;
+  border-bottom: 2px solid var(--line-strong);
+  background: none;
+  font: 400 15px/20px var(--sans);
+  color: var(--text-dim);
+  cursor: pointer;
+}
+.opts button:hover { color: var(--text); }
+.opts button[aria-checked="true"] {
+  color: var(--text);
+  font-weight: 600;
+  border-bottom-color: var(--accent);
+}
+.status {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font: 400 12px/16px var(--mono);
+  font-variant-numeric: tabular-nums;
+  color: var(--text-dim);
+}
+.status i { width: 6px; height: 6px; border-radius: 50%; background: var(--accent); }
+
+/* ---------- Corpo: knob + listas ---------- */
+.body {
+  flex: 1 1 auto;
+  min-height: 0;
+  display: grid;
+  grid-template-columns: 280px 1fr;
+  column-gap: 40px;
+  align-items: center;
+  padding: 0 32px;
+}
+.knob-area { display: flex; align-items: center; justify-content: center; }
+.knob {
+  position: relative;
+  flex: none;
+  width: var(--knob);
+  height: var(--knob);
+  cursor: ns-resize;
+  touch-action: none;
+  user-select: none;
+  transition: width 0.25s ease, height 0.25s ease;
+}
+.knob svg { position: absolute; inset: 0; width: 100%; height: 100%; overflow: visible; }
+.glow {
+  position: absolute;
+  inset: -12%;
+  border-radius: 50%;
+  background: radial-gradient(closest-side, rgba(79, 209, 197, 0.22), rgba(79, 209, 197, 0));
+  opacity: 0.8;
+  pointer-events: none;
+  transition: opacity 0.2s ease;
+}
+.knob:hover .glow { opacity: 1; }
+.arc-track { fill: none; stroke: #2A323E; stroke-width: 10; stroke-linecap: round; }
+.glow-arc { fill: none; stroke: var(--accent); stroke-width: 22; stroke-linecap: round; opacity: 0.16; }
+.val-arc { fill: none; stroke: var(--accent); stroke-width: 10; stroke-linecap: round; }
+.body-disc { stroke: rgba(242, 237, 227, 0.07); stroke-width: 1; }
+.tick { stroke: var(--text-dim); stroke-width: 2; stroke-linecap: round; opacity: 0.6; }
+.ptr { stroke: var(--text); stroke-width: 4; stroke-linecap: round; }
+.readout {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  pointer-events: none;
+}
+.num {
+  display: flex;
+  align-items: baseline;
+  font-family: var(--mono);
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
+  line-height: 1;
+  letter-spacing: -0.02em;
+  font-size: calc(var(--knob) * 0.215);
+}
+.num .pct { margin-left: 4px; font-size: calc(var(--knob) * 0.077); color: #B3AC9C; }
+.cap { margin-top: 8px; font-size: 10px; font-weight: 500; letter-spacing: 0.2em; color: #B3AC9C; }
+
+.choices {
+  align-self: center;
+  display: grid;
+  grid-template-columns: 200px 180px;
+  column-gap: 40px;
+  align-items: start;
+}
+.list .kicker { margin-bottom: 8px; }
+.list ul { list-style: none; display: flex; flex-direction: column; }
+.list button {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  height: 26px;
+  padding: 0;
+  border: 0;
+  background: none;
+  text-align: left;
+  font: 400 17px/26px var(--sans);
+  color: var(--text-dim);
+  white-space: nowrap;
+  cursor: pointer;
+}
+.list button::before {
+  content: "";
+  flex: none;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  box-shadow: inset 0 0 0 1px var(--text-dim);
+}
+.list button:hover { color: var(--text); }
+.list button[aria-checked="true"] { color: var(--text); font-weight: 600; }
+.list button[aria-checked="true"]::before { background: var(--accent); box-shadow: none; }
+
+/* ---------- Medidor ---------- */
+.meter {
+  flex: none;
+  height: 140px;
+  display: grid;
+  grid-template-columns: 1fr 176px;
+  column-gap: 40px;
+  padding: 16px 32px;
+  border-top: 1px solid var(--line);
+}
+.mleft { min-width: 0; display: flex; flex-direction: column; gap: 18px; }
+.bars { position: relative; height: 64px; }
+.tlabel {
+  position: absolute;
+  top: 0;
+  transform: translateX(-50%);
+  font: 500 12px/16px var(--mono);
+  white-space: nowrap;
+  color: var(--text);
+}
+.stlab { position: absolute; top: 0; right: 0; font-size: 12px; line-height: 16px; color: var(--text-dim); }
+.stlab .mono { margin-left: 4px; font-weight: 500; color: var(--text); }
+.tri {
+  position: absolute;
+  top: 15px;
+  transform: translateX(-50%);
+  width: 0;
+  height: 0;
+  border-left: 6px solid transparent;
+  border-right: 6px solid transparent;
+  border-top: 7px solid var(--text);
+}
+.tgt { position: absolute; top: 15px; height: 19px; width: 2px; margin-left: -1px; background: var(--text); }
+.band { position: absolute; top: 22px; height: 12px; width: 10%; background: rgba(242, 237, 227, 0.14); }
+.track { position: absolute; left: 0; right: 0; background: var(--surface-2); overflow: hidden; }
+.track.int { top: 22px; height: 12px; border-radius: 6px; }
+.track.st { top: 40px; height: 4px; border-radius: 2px; }
+.fill { position: absolute; left: 0; top: 0; bottom: 0; width: 0; }
+.fill.int { background: var(--accent); border-radius: 6px; }
+.fill.st { background: var(--accent-2); border-radius: 2px; }
+.ruler { position: absolute; left: 0; right: 0; top: 52px; height: 12px; }
+.ruler span {
+  position: absolute;
+  top: 0;
+  transform: translateX(-50%);
+  font: 400 11px/12px var(--mono);
+  color: var(--text-dim);
+}
+.ruler span:first-child { transform: none; }
+.ruler span:last-child { transform: translateX(-100%); }
+
+.tprow { display: flex; align-items: center; gap: 24px; height: 20px; }
+.grp { display: flex; align-items: center; gap: 10px; }
+.lbl { font-size: 12px; line-height: 16px; color: var(--text-dim); white-space: nowrap; }
+.val { font-size: 13px; line-height: 16px; color: var(--text); white-space: nowrap; }
+.note { font-size: 12px; line-height: 16px; color: var(--text-dim); white-space: nowrap; }
+.mini { position: relative; width: 72px; height: 12px; display: flex; align-items: center; }
+.mini .trk { position: relative; width: 100%; height: 4px; border-radius: 2px; background: var(--surface-2); overflow: hidden; }
+.mini .trk i { position: absolute; left: 0; top: 0; bottom: 0; width: 0; }
+.mini .trk .tp { background: var(--accent); }
+.mini .trk .gr { background: var(--warn); }
+.ceil { position: absolute; top: 0; bottom: 0; left: 83.33%; width: 2px; margin-left: -1px; background: var(--text); }
+
+.integrated { display: flex; flex-direction: column; justify-content: space-between; align-items: flex-end; }
+.int-top { display: flex; flex-direction: column; align-items: flex-end; }
+.big { font: 500 44px/44px var(--mono); font-variant-numeric: tabular-nums; letter-spacing: -0.01em; color: var(--text); }
+.unit { font-size: 12px; line-height: 16px; color: var(--text-dim); }
+.adv-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 24px;
+  padding: 0;
+  border: 0;
+  background: none;
+  font: 500 13px/16px var(--sans);
+  color: var(--text);
+  text-decoration: underline;
+  text-underline-offset: 4px;
+  cursor: pointer;
+}
+.arr { display: inline-block; transition: transform 0.2s ease; }
+.adv-btn[aria-expanded="true"] .arr { transform: rotate(90deg); }
+
+/* ---------- Avançado ---------- */
+.adv {
+  flex: none;
+  height: 0;
+  overflow: hidden;
+  background: var(--surface);
+  border-top: 1px solid var(--line);
+  transition: height 0.25s ease;
+}
+.win.adv-open .adv { height: 96px; }
+.adv-in { height: 96px; padding: 16px 32px; display: flex; flex-direction: column; justify-content: space-between; }
+.mgrid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 24px; }
+.mc-h { display: flex; justify-content: space-between; font-size: 12px; line-height: 16px; color: var(--text); }
+.mc-h .mono { font-size: 12px; }
+.mc-bar { margin-top: 8px; height: 4px; border-radius: 2px; background: var(--surface-2); overflow: hidden; }
+.mc-bar i { display: block; height: 100%; width: 100%; background: linear-gradient(90deg, var(--accent), var(--accent-2)); }
+.adv-info { display: flex; gap: 32px; font-size: 12px; line-height: 16px; color: var(--text-dim); }
+.adv-info b { margin-left: 6px; font-family: var(--mono); font-weight: 500; color: var(--text); }
+</style>
+</head>
+<body>
+<div class="win" id="win">
+
+  <header class="top">
+    <div class="brand">
+      <h1 class="wordmark">FINALE</h1>
+      <div class="ab">
+        <div class="seg" role="radiogroup" aria-label="Comparação A/B" data-group="ab">
+          <button type="button" role="radio" aria-checked="true">A · Finale</button>
+          <button type="button" role="radio" aria-checked="false">B · Original</button>
+        </div>
+        <span class="sub">volume igualado</span>
+      </div>
+    </div>
+
+    <div class="assist">
+      <span class="kicker" id="assistLbl">Assistente</span>
+      <div class="opts" role="radiogroup" aria-labelledby="assistLbl" data-group="assist">
+        <button type="button" role="radio" aria-checked="false" data-v="off">Off</button>
+        <button type="button" role="radio" aria-checked="false" data-v="analisar">Analisar</button>
+        <button type="button" role="radio" aria-checked="true" data-v="auto">Auto</button>
+        <button type="button" role="radio" aria-checked="false" data-v="congelar">Congelar</button>
+      </div>
+      <span class="status" aria-live="polite"><i aria-hidden="true"></i><span id="assistStatus">Ajustando · +2,4 dB</span></span>
+    </div>
+  </header>
+
+  <main class="body">
+    <section class="knob-area">
+      <div class="knob" id="knob" role="slider" tabindex="0" aria-label="Amount" aria-valuemin="0" aria-valuemax="100" aria-valuenow="62" aria-valuetext="62 por cento" title="Arraste para cima ou para baixo. Shift: ajuste fino. Duplo clique: 50 %">
+        <div class="glow" aria-hidden="true"></div>
+        <svg viewBox="0 0 260 260" aria-hidden="true" focusable="false">
+          <defs>
+            <radialGradient id="kbody" cx="50%" cy="34%" r="64%">
+              <stop offset="0" stop-color="#2A3240"/>
+              <stop offset="1" stop-color="#0F131A"/>
+            </radialGradient>
+          </defs>
+          <g id="ticks"></g>
+          <path id="trackArc" class="arc-track" d=""/>
+          <path id="glowArc" class="glow-arc" d=""/>
+          <path id="valArc" class="val-arc" d=""/>
+          <circle cx="130" cy="130" r="82" fill="url(#kbody)" class="body-disc"/>
+          <g id="ptr"><line x1="130" y1="74" x2="130" y2="50" class="ptr"/></g>
+        </svg>
+        <div class="readout">
+          <div class="num"><span id="readout">62</span><span class="pct">%</span></div>
+          <div class="cap">AMOUNT</div>
+        </div>
+      </div>
+    </section>
+
+    <section class="choices">
+      <div class="list">
+        <span class="kicker">Gênero</span>
+        <ul role="radiogroup" aria-label="Gênero" data-group="genre">
+          <li><button type="button" role="radio" aria-checked="false">Trap</button></li>
+          <li><button type="button" role="radio" aria-checked="false">Rap/Boom bap</button></li>
+          <li><button type="button" role="radio" aria-checked="false">Lo-fi</button></li>
+          <li><button type="button" role="radio" aria-checked="false">Funk BR</button></li>
+          <li><button type="button" role="radio" aria-checked="false">House</button></li>
+          <li><button type="button" role="radio" aria-checked="false">EDM</button></li>
+          <li><button type="button" role="radio" aria-checked="true">Pop</button></li>
+          <li><button type="button" role="radio" aria-checked="false">Rock</button></li>
+        </ul>
+      </div>
+      <div class="list">
+        <span class="kicker">Caráter</span>
+        <ul role="radiogroup" aria-label="Caráter" data-group="char">
+          <li><button type="button" role="radio" aria-checked="true">Clean</button></li>
+          <li><button type="button" role="radio" aria-checked="false">Warm</button></li>
+          <li><button type="button" role="radio" aria-checked="false">Punch</button></li>
+          <li><button type="button" role="radio" aria-checked="false">Wide</button></li>
+          <li><button type="button" role="radio" aria-checked="false">DOOM</button></li>
+        </ul>
+      </div>
+    </section>
+  </main>
+
+  <section class="meter" aria-label="Medidores de loudness">
+    <div class="mleft">
+      <div class="bars">
+        <span class="tlabel" id="tlabel">alvo −9,5 · Pop</span>
+        <span class="stlab">Curto prazo <span class="mono" id="stVal">−9,0</span></span>
+        <div class="track int"><div class="fill int" id="intBar"></div></div>
+        <div class="track st"><div class="fill st" id="stBar"></div></div>
+        <div class="band" id="band"></div>
+        <div class="tri" id="tri"></div>
+        <div class="tgt" id="tgt"></div>
+        <div class="ruler">
+          <span style="left:0%">−20</span>
+          <span style="left:20%">−16</span>
+          <span style="left:40%">−12</span>
+          <span style="left:60%">−8</span>
+          <span style="left:80%">−4</span>
+          <span style="left:100%">0</span>
+        </div>
+      </div>
+      <div class="tprow">
+        <div class="grp">
+          <span class="lbl">True peak</span>
+          <span class="mono val" id="tpVal">−1,2 dBTP</span>
+          <div class="mini"><div class="trk"><i class="tp" id="tpBar"></i></div><div class="ceil"></div></div>
+          <span class="note">teto −1,0</span>
+        </div>
+        <div class="grp">
+          <span class="lbl">GR limiter</span>
+          <span class="mono val" id="grVal">−1,6 dB</span>
+          <div class="mini"><div class="trk"><i class="gr" id="grBar"></i></div></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="integrated">
+      <div class="int-top">
+        <span class="kicker">Integrado</span>
+        <span class="big" id="intVal">−9,6</span>
+        <span class="unit">LUFS</span>
+      </div>
+      <button type="button" class="adv-btn" id="advBtn" aria-expanded="false" aria-controls="advPanel">Avançado <span class="arr" aria-hidden="true">→</span></button>
+    </div>
+  </section>
+
+  <section class="adv" id="advPanel" inert>
+    <div class="adv-in">
+      <div class="mgrid">
+        <div><div class="mc-h"><span>EQ</span><span class="mono">100 %</span></div><div class="mc-bar"><i></i></div></div>
+        <div><div class="mc-h"><span>Compressão</span><span class="mono">100 %</span></div><div class="mc-bar"><i></i></div></div>
+        <div><div class="mc-h"><span>Saturação</span><span class="mono">100 %</span></div><div class="mc-bar"><i></i></div></div>
+        <div><div class="mc-h"><span>Largura</span><span class="mono">100 %</span></div><div class="mc-bar"><i></i></div></div>
+      </div>
+      <div class="adv-info">
+        <span>Ajuste de LUFS<b>+0,0 LU</b></span>
+        <span>Alvo manual:<b>desligado</b></span>
+      </div>
+    </div>
+  </section>
+
+</div>
+<p class="caption">Versão 7 · Noir editorial · knob herói e listas tipográficas</p>
+
+<script>
+(() => {
+  'use strict';
+  const NS = 'http://www.w3.org/2000/svg';
+  const $ = (s) => document.querySelector(s);
+  const $$ = (s, root = document) => [...root.querySelectorAll(s)];
+  const clamp = (v, a, b) => Math.min(b, Math.max(a, v));
+  const fmt = (v, d = 1) => (v < 0 ? '−' : '') + Math.abs(v).toFixed(d).replace('.', ',');
+  const pct = (x) => x.toFixed(2) + '%';
+  const win = $('#win');
+
+  /* Knob "Amount": arco, ponteiro e número (do v1) */
+  const C = 130, R = 104, START = -135, SPAN = 270;
+  const P = (a, r = R) => [C + r * Math.sin(a * Math.PI / 180), C - r * Math.cos(a * Math.PI / 180)];
+  const arc = (a0, a1) => {
+    const [x0, y0] = P(a0), [x1, y1] = P(a1);
+    return `M${x0.toFixed(2)} ${y0.toFixed(2)}A${R} ${R} 0 ${a1 - a0 > 180 ? 1 : 0} 1 ${x1.toFixed(2)} ${y1.toFixed(2)}`;
+  };
+  const knob = $('#knob');
+  const ticks = $('#ticks');
+  let amount = 62;
+  $('#trackArc').setAttribute('d', arc(START, START + SPAN));
+  for (let i = 0; i <= 10; i++) {
+    const a = START + SPAN * i / 10;
+    const [x1, y1] = P(a, 116), [x2, y2] = P(a, i % 5 ? 121 : 124);
+    const l = document.createElementNS(NS, 'line');
+    l.setAttribute('x1', x1.toFixed(2)); l.setAttribute('y1', y1.toFixed(2));
+    l.setAttribute('x2', x2.toFixed(2)); l.setAttribute('y2', y2.toFixed(2));
+    l.setAttribute('class', 'tick');
+    ticks.appendChild(l);
+  }
+  const drawKnob = () => {
+    const end = START + SPAN * amount / 100;
+    const d = amount > 0.05 ? arc(START, end) : '';
+    $('#valArc').setAttribute('d', d);
+    $('#glowArc').setAttribute('d', d);
+    $('#ptr').setAttribute('transform', `rotate(${end.toFixed(2)} ${C} ${C})`);
+    const v = Math.round(amount);
+    $('#readout').textContent = v;
+    knob.setAttribute('aria-valuenow', v);
+    knob.setAttribute('aria-valuetext', `${v} por cento`);
+  };
+  const setAmount = (v) => { amount = clamp(Math.round(v * 10) / 10, 0, 100); drawKnob(); };
+  let dragY = null;
+  knob.addEventListener('pointerdown', (e) => {
+    dragY = e.clientY;
+    knob.focus();
+    knob.setPointerCapture(e.pointerId);
+    e.preventDefault();
+  });
+  knob.addEventListener('pointermove', (e) => {
+    if (dragY === null) return;
+    setAmount(amount + (dragY - e.clientY) * (e.shiftKey ? 0.1 : 0.5)); // Shift: ajuste fino
+    dragY = e.clientY;
+  });
+  const endDrag = () => { dragY = null; };
+  knob.addEventListener('pointerup', endDrag);
+  knob.addEventListener('pointercancel', endDrag);
+  knob.addEventListener('dblclick', () => setAmount(50));
+  knob.addEventListener('keydown', (e) => {
+    const step = e.shiftKey ? 1 : 5;
+    const keys = { ArrowUp: step, ArrowRight: step, ArrowDown: -step, ArrowLeft: -step };
+    if (e.key in keys) { setAmount(amount + keys[e.key]); e.preventDefault(); }
+    if (e.key === 'Home') setAmount(0);
+    if (e.key === 'End') setAmount(100);
+  });
+  drawKnob();
+
+  /* Gênero: alvo de LUFS na escala -20..0 do medidor. Mudar o gênero move o alvo em todo lugar */
+  const GENRES = [['Trap', -9], ['Rap/Boom bap', -9], ['Lo-fi', -9], ['Funk BR', -9], ['House', -9], ['EDM', -8.5], ['Pop', -9.5], ['Rock', -9]];
+  const tlabel = $('#tlabel'), tri = $('#tri'), tgt = $('#tgt'), band = $('#band');
+  const renderGenre = (i) => {
+    const [name, t] = GENRES[i];
+    const x = pct((t + 20) / 20 * 100);
+    tlabel.textContent = `alvo ${fmt(t)} · ${name}`;
+    tlabel.style.left = tri.style.left = tgt.style.left = x;
+    band.style.left = pct((t - 1 + 20) / 20 * 100); // faixa de ±1 LU
+  };
+
+  /* Seletores: assistente, gênero, caráter e A/B */
+  const ASSIST = {
+    off: 'Desligado · sem ajuste',
+    analisar: 'Analisando · sem alterar',
+    auto: 'Ajustando · +2,4 dB',
+    congelar: 'Congelado · +2,4 dB',
+  };
+  $$('[role="radiogroup"]').forEach((group) => group.addEventListener('click', (e) => {
+    const b = e.target.closest('[role="radio"]');
+    if (!b || !group.contains(b)) return;
+    const opts = $$('[role="radio"]', group);
+    opts.forEach((x) => x.setAttribute('aria-checked', String(x === b)));
+    if (group.dataset.group === 'assist') $('#assistStatus').textContent = ASSIST[b.dataset.v];
+    if (group.dataset.group === 'genre') renderGenre(opts.indexOf(b));
+  }));
+  renderGenre(Math.max(0, $$('[data-group="genre"] [role="radio"]').findIndex((b) => b.getAttribute('aria-checked') === 'true')));
+
+  /* Painel Avançado */
+  const advBtn = $('#advBtn'), advPanel = $('#advPanel');
+  advBtn.addEventListener('click', () => {
+    const open = !win.classList.contains('adv-open');
+    win.classList.toggle('adv-open', open);
+    advBtn.setAttribute('aria-expanded', String(open));
+    advPanel.inert = !open;
+  });
+
+  /* Medidores: passeio aleatório suave em volta dos valores de exemplo, ~30 fps */
+  const M = {
+    int: { v: -9.6, base: -9.6, spread: 0.02, max: 0.03, lo: -9.9, hi: -9.3 },
+    st:  { v: -9.0, base: -9.0, spread: 0.15, max: 0.2,  lo: -11.5, hi: -7.0 },
+    tp:  { v: -1.2, base: -1.2, spread: 0.02, max: 0.03, lo: -1.5, hi: -1.05 }, // nunca passa do teto de -1,0 dBTP
+    gr:  { v: 1.6,  base: 1.6,  spread: 0.02, max: 0.03, lo: 1.0,  hi: 2.2 },
+  };
+  const walk = (m) => {
+    const d = clamp((Math.random() * 2 - 1) * m.spread + (m.base - m.v) * 0.05, -m.max, m.max);
+    m.v = clamp(m.v + d, m.lo, m.hi);
+  };
+  const el = {
+    stVal: $('#stVal'), stBar: $('#stBar'), intVal: $('#intVal'), intBar: $('#intBar'),
+    tpVal: $('#tpVal'), tpBar: $('#tpBar'), grVal: $('#grVal'), grBar: $('#grBar'),
+  };
+  const render = () => {
+    el.stVal.textContent = fmt(M.st.v);
+    el.stBar.style.width = pct((M.st.v + 20) / 20 * 100);          // escala -20..0 LUFS
+    el.intVal.textContent = fmt(M.int.v);
+    el.intBar.style.width = pct((M.int.v + 20) / 20 * 100);
+    el.tpVal.textContent = fmt(M.tp.v) + ' dBTP';
+    el.tpBar.style.width = pct((M.tp.v + 6) / 6 * 100);           // escala -6..0 dBTP
+    el.grVal.textContent = fmt(-M.gr.v) + ' dB';
+    el.grBar.style.width = pct(M.gr.v / 12 * 100);                // escala 0..12 dB
+  };
+  const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  let last = 0;
+  const frame = (t) => {
+    if (t - last >= 33) { last = t; Object.values(M).forEach(walk); render(); }
+    requestAnimationFrame(frame);
+  };
+  render();
+  if (!reduce) requestAnimationFrame(frame);
+})();
+</script>
+</body>
+</html>
