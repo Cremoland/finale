@@ -10,6 +10,7 @@
 #include <algorithm>
 #include <cmath>
 #include <initializer_list>
+#include <memory>
 #include <random>
 #include <vector>
 
@@ -565,4 +566,26 @@ TEST_CASE ("interface: true peak e redução do limiter")
     quiet.processBlock (silence, midi);
     CHECK (quiet.getOutputTruePeakDb() == -100.0f);
     CHECK (quiet.getLimiterReductionDb() == Approx (0.0f).margin (1.0e-3));
+}
+
+TEST_CASE ("interface: editor abre e desenha")
+{
+    const juce::ScopedJuceInitialiser_GUI juceInit;
+    FinaleProcessor p;
+    p.prepareToPlay (48000.0, 512);
+    std::unique_ptr<juce::AudioProcessorEditor> editor (p.createEditor());
+    REQUIRE (editor != nullptr);
+    CHECK (editor->getWidth() == 820);
+    CHECK (editor->getHeight() == 500);
+    const auto image = editor->createComponentSnapshot (editor->getLocalBounds());
+    CHECK (image.getPixelAt (4, 4) == juce::Colour (0xffF4F1EA));
+    // Captura para revisão visual (fica na pasta temporária).
+    juce::File out = juce::File::getSpecialLocation (juce::File::tempDirectory).getChildFile ("finale-editor.png");
+    juce::FileOutputStream stream (out);
+    if (stream.openedOk())
+    {
+        stream.setPosition (0);
+        stream.truncate();
+        juce::PNGImageFormat().writeImageToStream (image, stream);
+    }
 }
