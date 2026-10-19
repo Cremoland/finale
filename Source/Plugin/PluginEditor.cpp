@@ -21,11 +21,10 @@ constexpr int advancedHeight = 76;
 constexpr int sidePadding = 32;
 constexpr int bodyPaddingY = 12;
 constexpr int columnGap = 24;
-constexpr int meterWidth = 216;
+constexpr int meterWidth = LoudnessPanel::width;
 constexpr int presetHeight = 144;
 constexpr int presetGap = 6;
 constexpr int knobDiameter = 200;
-constexpr int knobDiameterAdvanced = 142;
 constexpr int infoColumnWidth = 200; // CSS do protótipo (.info-col); o brief dizia 220
 constexpr int infoColumnX = windowWidth - sidePadding - infoColumnWidth;
 
@@ -101,7 +100,8 @@ FinaleEditor::FinaleEditor (FinaleProcessor& p) :
     assistantSelector (*p.parameters.getParameter (ParamIDs::assistant),
         labelsOf ({ "Off", "Analisar", "Auto", "Congelar" }), ChoiceSelector::Style::segmented),
     compareSelector (*p.parameters.getParameter (ParamIDs::compare),
-        labelsOf ({ juce::String::fromUTF8 ("A \xc2\xb7 Finale"), juce::String::fromUTF8 ("B \xc2\xb7 Original") }),
+        labelsOf ({ juce::String::fromUTF8 ("A \xc2\xb7 ") + JucePlugin_Name,
+            juce::String::fromUTF8 ("B \xc2\xb7 Original") }),
         ChoiceSelector::Style::segmented),
     manualTargetSelector (*p.parameters.getParameter (ParamIDs::manualTarget), labelsOf ({ "Desligado", "Ligado" }),
         ChoiceSelector::Style::segmented),
@@ -306,7 +306,9 @@ void FinaleEditor::resized()
     // Coluna da esquerda: o knob centrado na área de cima e o box PRESET embaixo.
     presetArea = content.removeFromBottom (presetHeight);
     content.removeFromBottom (presetGap);
-    const auto knobSize = advancedOpen ? knobDiameterAdvanced : knobDiameter;
+    // Diâmetro: 200 px, ou menos quando a área é curta (Avançado aberto). Com 4 px de folga em cima e embaixo, o
+    // knob fica a pelo menos 8 px do box PRESET (6 px de presetGap + 2 px).
+    const auto knobSize = juce::jmin (knobDiameter, content.getHeight() - 4);
     knob.setBounds (content.withSizeKeepingCentre (knobSize, knobSize));
 
     const auto presetInner = presetArea.reduced (16, 0);
@@ -314,7 +316,7 @@ void FinaleEditor::resized()
     genreSelector.setBounds (presetInner.getX(), presetArea.getY() + 53, presetInner.getWidth(), 28);
     characterSelector.setBounds (presetInner.getX(), presetArea.getY() + 106, presetInner.getWidth(), 28);
 
-    advancedToggle.setBounds (24, footerArea.getY() + 8, 110, 32);
+    advancedToggle.setBounds (sidePadding, footerArea.getY() + 8, 110, 32);
 
     if (advancedOpen)
     {

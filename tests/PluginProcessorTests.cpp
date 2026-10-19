@@ -2,6 +2,7 @@
 #include "DSP/TonalAssistant.h"
 #include "DSP/TruePeakDetector.h"
 #include "DSP/TruePeakLimiter.h"
+#include "Plugin/PluginEditor.h"
 #include "Plugin/PluginProcessor.h"
 
 #include <catch2/catch_approx.hpp>
@@ -554,6 +555,7 @@ TEST_CASE ("interface: true peak e redução do limiter")
     setParam (p, finale::ParamIDs::amount, 100.0f);
     p.prepareToPlay (48000.0, 512);
     run (p, 2, 48000.0, 0.5f, 2.0, { 512 });
+    run (p, 2, 48000.0, 0.5f, 0.2, { 1, 0, 37 }); // blocos de 1 e 0 amostras, sem perder a leitura
     CHECK (p.getOutputTruePeakDb() <= -1.0f + 0.1f);
     CHECK (p.getOutputTruePeakDb() > -6.0f);
     CHECK (p.getLimiterReductionDb() > 0.5f);
@@ -568,6 +570,27 @@ TEST_CASE ("interface: true peak e redução do limiter")
     CHECK (quiet.getLimiterReductionDb() == Approx (0.0f).margin (1.0e-3));
 }
 
+namespace
+{
+
+// Grava a captura só com FINALE_SNAPSHOT definido (revisão visual local). Na CI nada fica para trás.
+void saveSnapshotIfRequested (const juce::Image& image, const char* fileName)
+{
+    if (juce::SystemStats::getEnvironmentVariable ("FINALE_SNAPSHOT", { }).isEmpty())
+        return;
+
+    juce::File out = juce::File::getSpecialLocation (juce::File::tempDirectory).getChildFile (fileName);
+    juce::FileOutputStream stream (out);
+    if (stream.openedOk())
+    {
+        stream.setPosition (0);
+        stream.truncate();
+        juce::PNGImageFormat().writeImageToStream (image, stream);
+    }
+}
+
+} // namespace
+
 TEST_CASE ("interface: editor abre e desenha")
 {
     const juce::ScopedJuceInitialiser_GUI juceInit;
@@ -579,13 +602,15 @@ TEST_CASE ("interface: editor abre e desenha")
     CHECK (editor->getHeight() == 500);
     const auto image = editor->createComponentSnapshot (editor->getLocalBounds());
     CHECK (image.getPixelAt (4, 4) == juce::Colour (0xffF4F1EA));
-    // Captura para revisão visual (fica na pasta temporária).
-    juce::File out = juce::File::getSpecialLocation (juce::File::tempDirectory).getChildFile ("finale-editor.png");
-    juce::FileOutputStream stream (out);
-    if (stream.openedOk())
-    {
-        stream.setPosition (0);
-        stream.truncate();
-        juce::PNGImageFormat().writeImageToStream (image, stream);
-    }
+    saveSnapshotIfRequested (image, "finale-editor.png");
+
+    // Avançado aberto: a janela continua 820 × 500 e o fundo não muda.
+    auto* finaleEditor = dynamic_cast<finale::FinaleEditor*> (editor.get());
+    REQUIRE (finaleEditor != nullptr);
+    finaleEditor->setAdvancedOpen (true);
+    CHECK (editor->getWidth() == 820);
+    CHECK (editor->getHeight() == 500);
+    const auto advancedImage = editor->createComponentSnapshot (editor->getLocalBounds());
+    CHECK (advancedImage.getPixelAt (4, 4) == juce::Colour (0xffF4F1EA));
+    saveSnapshotIfRequested (advancedImage, "finale-editor-avancado.png");
 }

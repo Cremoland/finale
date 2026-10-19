@@ -19,9 +19,11 @@ public:
     void paint (juce::Graphics&) override;
     void resized() override;
 
+    // Abre ou fecha o Avançado (também chamado pelo teste, para desenhar a janela com o painel aberto).
+    void setAdvancedOpen (bool open);
+
 private:
     void timerCallback() override;
-    void setAdvancedOpen (bool open);
     juce::String presetSummary() const;
 
     // Botão "Avançado": sem desenho próprio, o texto e o caret saem do paint do editor.

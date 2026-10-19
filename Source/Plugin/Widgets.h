@@ -255,8 +255,6 @@ public:
         attachment.setValueAsCompleteGesture (next);
     }
 
-    std::function<void()> onChange;
-
 private:
     void closeGesture()
     {
@@ -271,8 +269,6 @@ private:
     {
         value = v;
         repaint();
-        if (onChange)
-            onChange();
     }
 
     float value = 50.0f;
@@ -347,8 +343,6 @@ public:
         return false;
     }
 
-    std::function<void()> onChange;
-
 private:
     static juce::Font chipMeasureFont() { return theme::ui (11.0f, 700); }
     static juce::Font segmentMeasureFont() { return theme::ui (12.0f, 600); }
@@ -357,8 +351,6 @@ private:
     {
         index = juce::jlimit (0, labels.size() - 1, juce::roundToInt (v));
         repaint();
-        if (onChange)
-            onChange();
     }
 
     void select (int i)
@@ -608,8 +600,6 @@ public:
         attachment.setValueAsCompleteGesture (param.convertFrom0to1 (param.getDefaultValue()));
     }
 
-    std::function<void()> onChange;
-
 private:
     void closeGesture()
     {
@@ -624,8 +614,6 @@ private:
     {
         value = v;
         repaint();
-        if (onChange)
-            onChange();
     }
 
     juce::RangedAudioParameter& param;

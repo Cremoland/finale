@@ -93,6 +93,8 @@ private:
 
     // Sem sinal abaixo de −70 LUFS. Histerese: entra em "no alvo" dentro de ±0,8 LU e só sai além de ±1,2 LU.
     static constexpr float silenceLufs = -70.0f;
+    // Piso do true peak: o processor marca −100 dBTP sem sinal. Abaixo de −99 mostra "—" (não usa o −70 do LUFS).
+    static constexpr float truePeakFloorDb = -99.0f;
     static constexpr float enterBand = 0.8f;
     static constexpr float leaveBand = 1.2f;
     static constexpr std::uint32_t peakHoldMs = 1500;
@@ -254,7 +256,7 @@ private:
         g.setColour (theme::text);
         g.setFont (theme::mono (13.0f, 500));
         // Sem sinal, o valor vira "—", como no integrado.
-        const auto peakText = peakHoldDb <= silenceLufs ? dashSign() : formatDecimal (peakHoldDb);
+        const auto peakText = peakHoldDb <= truePeakFloorDb ? dashSign() : formatDecimal (peakHoldDb);
         g.drawText (peakText + juce::String (" dBTP"), row, juce::Justification::centredRight, false);
 
         // Barra fina na escala de −6 a 0 dBTP, com o marcador do teto.

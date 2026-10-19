@@ -122,7 +122,7 @@ void FinaleProcessor::prepareToPlay (double sampleRate, int samplesPerBlock)
     abCompare.prepare (sampleRate, channels, dsp::Saturator::latency, maxChunk);
 
     tonalEq.prepare (sampleRate, channels);
-    outputPeak.prepare (channels);
+    outputPeak.prepare (2); // processBlock indexa até 2 canais (chunk[2]), mesmo com mono
     assistant.prepare (sampleRate);
     tonalAnalyzer.prepare (sampleRate);
     tonalAssistant.prepare (sampleRate);
