@@ -378,7 +378,7 @@ button:focus-visible,[tabindex]:focus-visible{outline:2px solid var(--accent-2);
     $('#gName').style.fontSize = name.length > 9 ? '18px' : '22px';
     $('#gIdx').textContent = `${st.genre + 1} / 8`;
     $('#tgtLbl').textContent = 'Alvo · ' + name;
-    $('#tgtVal').textContent = (t % 1 ? num(t, 1) : num(t, 0)) + ' LUFS';
+    $('#tgtVal').textContent = num(t, 1) + ' LUFS';
     $('#tgtLine').style.left = ((t + 20) / 20 * 100).toFixed(2) + '%';
     $('#tgtBand').style.left = ((t - 1 + 20) / 20 * 100).toFixed(2) + '%';
     $('#vuBand').setAttribute('d', arc(112, 108, 96, dv(t - 1), dv(t + 1)));
@@ -443,9 +443,9 @@ button:focus-visible,[tabindex]:focus-visible{outline:2px solid var(--accent-2);
   const loop = (t) => {
     if (t - last >= 33) {
       last = t;
-      m.st = walk(m.st, -10.8, 0.9, -14.5, -7.5);
-      m.tp = walk(m.tp, -1.2, 0.3, -1.6, -1.0);
-      m.gr = walk(m.gr, 0.4, 0.3, 0, 1.5);
+      m.st = walk(m.st, -10.8, 0.2, -14.5, -7.5);
+      m.tp = walk(m.tp, -1.2, 0.05, -1.6, -1.0);
+      m.gr = walk(m.gr, 0.4, 0.05, 0, 1.5);
       renderMeters();
     }
     requestAnimationFrame(loop);

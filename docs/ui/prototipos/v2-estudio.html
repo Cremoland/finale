@@ -406,16 +406,14 @@
   const N = 240; // 8 s de histórico
   const hST = new Float32Array(N).fill(-9.5), hMO = new Float32Array(N).fill(-9.4), hIN = new Float32Array(N).fill(-13);
   let st = -9.5, mo = -9.4, inp = -13, tp = -1.3, gr = 1.6;
-  let moD = 0, inD = 0; // deriva suave de momentâneo e entrada
   const rnd = () => Math.random() - 0.5;
   const push = (a, v) => { a.copyWithin(0, 1); a[N - 1] = v; };
   const stEl = $('#stVal'), tpEl = $('#tpVal'), grEl = $('#grVal'), grFill = $('#grFill'), stFill = $('#stFill');
   function step() {
-    st = clamp(st + (-9.5 - st) * 0.06 + rnd() * 0.6, -11.2, -7.8);
-    moD = clamp(moD * 0.9 + rnd() * 0.3, -0.7, 0.7);
-    inD = clamp(inD * 0.9 + rnd() * 0.4, -1.2, 1.2);
-    mo = clamp(st + 0.2 + moD, -12, -6);
-    inp = clamp(st - 3.8 + inD, -18, -6);
+    // Cada traço é um AR(1) próprio, com passo pequeno por quadro (sem ruído direto no valor desenhado)
+    st = clamp(st + (-9.5 - st) * 0.06 + rnd() * 0.2, -11.2, -7.8);
+    mo = clamp(mo + (st + 0.2 - mo) * 0.1 + rnd() * 0.2, -12, -6);
+    inp = clamp(inp + (st - 3.8 - inp) * 0.1 + rnd() * 0.08, -18, -6);
     tp = clamp(tp + rnd() * 0.08 + (-1.2 - tp) * 0.1, -1.5, -1.1);
     gr = clamp(gr + rnd() * 0.5 + (1.6 - gr) * 0.08, 0, 4.5);
     push(hST, st); push(hMO, mo); push(hIN, inp);
