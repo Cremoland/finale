@@ -7,6 +7,7 @@
 #include <algorithm>
 #include <cmath>
 #include <cstdint>
+#include <tuple>
 #include <utility>
 #include <vector>
 
@@ -26,6 +27,8 @@ public:
     void update (float integrated, float shortTerm, float truePeakDb, float grDb, float target, juce::String genreName,
         float ceilingDb)
     {
+        const auto before = shownState();
+
         integratedLufs = integrated;
         shortTermLufs = shortTerm;
         targetLufs = target;
@@ -42,7 +45,10 @@ public:
         }
 
         updatePill();
-        repaint();
+
+        // Repinta só quando algo que aparece na tela mudou (o timer chama update a 30 Hz).
+        if (shownState() != before)
+            repaint();
     }
 
     void paint (juce::Graphics& g) override
@@ -57,7 +63,9 @@ public:
         constexpr float headerH = 22.0f;
         constexpr float bigH = 44.0f;
         constexpr float rowH = 16.0f;
-        constexpr float shortH = rowH + gapMin + 50.0f; // linha, rótulo (18), barra (12), régua (20)
+        // Curto prazo: linha (16) e 8 px, depois um bloco de 50: rótulo do alvo (16), barra (12) em y=18 e régua (14)
+        // 6 px abaixo da barra.
+        constexpr float shortH = rowH + gapMin + 50.0f;
         constexpr float truePeakH = rowH + gapMin + 6.0f + gapMin + 14.0f; // linha, barra fina, nota
         constexpr float grH = rowH + gapMin + 6.0f; // linha e barra fina
         const auto gap = std::max (gapMin, (content.getHeight() - (headerH + bigH + shortH + truePeakH + grH)) / 4.0f);
@@ -88,6 +96,13 @@ private:
     static constexpr float enterBand = 0.8f;
     static constexpr float leaveBand = 1.2f;
     static constexpr std::uint32_t peakHoldMs = 1500;
+
+    // Tudo o que o paint mostra. Se nada disso mudou, o update não repinta.
+    auto shownState() const
+    {
+        return std::make_tuple (
+            integratedLufs, shortTermLufs, targetLufs, ceilingDbtp, grReductionDb, peakHoldDb, pillState, genre);
+    }
 
     void updatePill()
     {
@@ -150,16 +165,22 @@ private:
     {
         const auto silent = integratedLufs <= silenceLufs;
         const auto number = silent ? dashSign() : formatDecimal (integratedLufs);
-        const auto numberFont = theme::mono (44.0f, 500);
+        const auto numberFont = theme::mono (44.0f, 500).withExtraKerningFactor (-0.02f);
+        const auto unitFont = theme::ui (13.0f, 500);
 
-        g.setFont (numberFont);
+        // Número e "LUFS" compartilham a linha de base. A base de um texto centralizado na área é
+        // centro + (ascent − descent) / 2.
+        const auto baseline = area.getCentreY() + (numberFont.getAscent() - numberFont.getDescent()) / 2.0f;
+        juce::GlyphArrangement glyphs;
+        glyphs.addLineOfText (numberFont, number, area.getX(), baseline);
         g.setColour (theme::text);
-        g.drawText (number, area, juce::Justification::centredLeft, false);
+        glyphs.draw (g);
 
-        g.setFont (theme::ui (13.0f, 500));
+        juce::GlyphArrangement unit;
+        unit.addLineOfText (
+            unitFont, juce::String ("LUFS"), area.getX() + textWidth (numberFont, number) + 6.0f, baseline);
         g.setColour (theme::textDim);
-        g.drawText (juce::String ("LUFS"), area.withTrimmedLeft (textWidth (numberFont, number) + 6.0f),
-            juce::Justification::centredLeft, false);
+        unit.draw (g);
     }
 
     void drawShortTerm (juce::Graphics& g, juce::Rectangle<float> area)
@@ -232,7 +253,9 @@ private:
         g.drawText (juce::String ("True peak"), row, juce::Justification::centredLeft, false);
         g.setColour (theme::text);
         g.setFont (theme::mono (13.0f, 500));
-        g.drawText (formatDecimal (peakHoldDb) + juce::String (" dBTP"), row, juce::Justification::centredRight, false);
+        // Sem sinal, o valor vira "—", como no integrado.
+        const auto peakText = peakHoldDb <= silenceLufs ? dashSign() : formatDecimal (peakHoldDb);
+        g.drawText (peakText + juce::String (" dBTP"), row, juce::Justification::centredRight, false);
 
         // Barra fina na escala de −6 a 0 dBTP, com o marcador do teto.
         area.removeFromTop (8.0f);

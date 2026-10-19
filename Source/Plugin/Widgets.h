@@ -87,6 +87,29 @@ inline void drawRuns (
     }
 }
 
+// Como drawRuns, mas na linha de base dada: trechos de fontes diferentes (número e unidade) ficam alinhados pela base,
+// não pelo centro. A base é a coordenada y do texto; GlyphArrangement desenha a partir dela.
+inline void drawRunsOnBaseline (
+    juce::Graphics& g, const std::vector<TextRun>& runs, float left, float right, float baselineY, TextAlign alignment)
+{
+    const auto total = runsWidth (runs);
+
+    float x = left;
+    if (alignment == TextAlign::center)
+        x = (left + right) / 2.0f - total / 2.0f;
+    else if (alignment == TextAlign::right)
+        x = right - total;
+
+    for (const auto& run : runs)
+    {
+        juce::GlyphArrangement glyphs;
+        glyphs.addLineOfText (run.font, run.text, x, baselineY);
+        g.setColour (run.colour);
+        glyphs.draw (g);
+        x += textWidth (run.font, run.text);
+    }
+}
+
 // Número com uma casa, vírgula decimal e sinal "−", como no protótipo. Zero arredondado sai sem sinal.
 inline juce::String formatDecimal (float value)
 {
@@ -106,6 +129,9 @@ public:
         attachment.sendInitialUpdate();
     }
 
+    // Nunca deixa um gesto do host aberto quando o knob some.
+    ~AmountKnob() override { closeGesture(); }
+
     void paint (juce::Graphics& g) override
     {
         const auto bounds = getLocalBounds().toFloat();
@@ -121,9 +147,10 @@ public:
         };
         const auto valueDegrees = -135.0f + 270.0f * fraction;
 
-        // Arco: trilho em rule e valor em accent, com traço de 14 px e pontas redondas.
-        const auto arcRadius = 0.44f * d;
-        const juce::PathStrokeType arcStroke (14.0f, juce::PathStrokeType::curved, juce::PathStrokeType::rounded);
+        // Geometria do SVG do protótipo (viewBox 200, R = 84, traço 14), escalada pelo diâmetro d: arco em 0,42 d e
+        // traço de 14·d/200. Assim o knob fica igual em qualquer tamanho.
+        const auto arcRadius = 0.42f * d;
+        const juce::PathStrokeType arcStroke (0.07f * d, juce::PathStrokeType::curved, juce::PathStrokeType::rounded);
 
         juce::Path track;
         track.addCentredArc (centre.x, centre.y, arcRadius, arcRadius, 0.0f, juce::degreesToRadians (-135.0f),
@@ -140,43 +167,47 @@ public:
             g.strokePath (valueArc, arcStroke);
         }
 
-        // Marcas: 11, por fora do arco, em textDim com 50 % de opacidade.
-        const juce::PathStrokeType tickStroke (2.0f, juce::PathStrokeType::curved, juce::PathStrokeType::rounded);
+        // Marcas: 11, por fora do arco (0,455 d), em textDim com 50 % de opacidade. As de múltiplos de 5 são maiores,
+        // como no protótipo (raios 94 a 97 e 99 num viewBox de 200), com traço de 2·d/200.
+        const juce::PathStrokeType tickStroke (0.01f * d, juce::PathStrokeType::curved, juce::PathStrokeType::rounded);
         g.setColour (theme::textDim.withAlpha (0.5f));
         for (int i = 0; i <= 10; ++i)
         {
             const auto degrees = -135.0f + 27.0f * static_cast<float> (i);
+            const auto outer = i % 5 == 0 ? 0.495f * d : 0.485f * d;
             juce::Path tick;
-            tick.startNewSubPath (pointAt (0.48f * d, degrees));
-            tick.lineTo (pointAt (0.495f * d, degrees));
+            tick.startNewSubPath (pointAt (0.47f * d, degrees));
+            tick.lineTo (pointAt (outer, degrees));
             g.strokePath (tick, tickStroke);
         }
 
-        // Disco branco com sombra suave.
+        // Disco branco com sombra suave: raio 0,32 d (64 num viewBox de 200).
         juce::Path disc;
-        disc.addEllipse (centre.x - 0.33f * d, centre.y - 0.33f * d, 0.66f * d, 0.66f * d);
+        disc.addEllipse (centre.x - 0.32f * d, centre.y - 0.32f * d, 0.64f * d, 0.64f * d);
         juce::DropShadow (juce::Colour (0x241c1b19), 4, { 0, 2 }).drawForPath (g, disc);
         g.setColour (theme::surface);
         g.fillPath (disc);
 
-        // Ponteiro: de 0,25 d a 0,33 d, no ângulo do valor.
+        // Ponteiro: de 0,24 d a 0,29 d, no ângulo do valor, com traço de 4·d/200.
         juce::Path pointer;
-        pointer.startNewSubPath (pointAt (0.25f * d, valueDegrees));
-        pointer.lineTo (pointAt (0.33f * d, valueDegrees));
+        pointer.startNewSubPath (pointAt (0.24f * d, valueDegrees));
+        pointer.lineTo (pointAt (0.29f * d, valueDegrees));
         g.setColour (theme::text);
         g.strokePath (
-            pointer, juce::PathStrokeType (4.0f, juce::PathStrokeType::curved, juce::PathStrokeType::rounded));
+            pointer, juce::PathStrokeType (0.02f * d, juce::PathStrokeType::curved, juce::PathStrokeType::rounded));
 
         // Leitura no centro: número, "%" logo depois, e "AMOUNT" abaixo.
+        // O número tem letter-spacing −0,02 em. O "%" fica na mesma linha de base do número, não centralizado.
         const auto numberHeight = 0.2f * d;
+        const auto numberFont = theme::mono (numberHeight, 500).withExtraKerningFactor (-0.02f);
         const auto blockHeight = numberHeight + 6.0f + 12.0f;
         const auto top = centre.y - blockHeight / 2.0f;
+        const auto baseline = top + numberFont.getAscent();
         const std::vector<TextRun> readout {
-            { theme::mono (numberHeight, 500), juce::String (juce::roundToInt (value)), theme::text },
+            { numberFont, juce::String (juce::roundToInt (value)), theme::text },
             { theme::mono (0.08f * d), juce::String ("%"), theme::textDim },
         };
-        drawRuns (g, readout, juce::Rectangle<float> (bounds.getX(), top, bounds.getWidth(), numberHeight),
-            TextAlign::center);
+        drawRunsOnBaseline (g, readout, bounds.getX(), bounds.getRight(), baseline, TextAlign::center);
 
         g.setColour (theme::textDim);
         g.setFont (theme::ui (10.0f, 700).withExtraKerningFactor (0.16f));
@@ -187,6 +218,7 @@ public:
 
     void mouseDown (const juce::MouseEvent& e) override
     {
+        closeGesture(); // um gesto novo nunca começa com outro ainda aberto
         dragLastY = e.y;
         dragValue = value;
         // Duplo clique não abre gesto: quem trata é mouseDoubleClick.
@@ -210,14 +242,7 @@ public:
         repaint();
     }
 
-    void mouseUp (const juce::MouseEvent&) override
-    {
-        if (gestureOpen)
-        {
-            attachment.endGesture();
-            gestureOpen = false;
-        }
-    }
+    void mouseUp (const juce::MouseEvent&) override { closeGesture(); }
 
     void mouseDoubleClick (const juce::MouseEvent&) override { attachment.setValueAsCompleteGesture (50.0f); }
 
@@ -233,6 +258,15 @@ public:
     std::function<void()> onChange;
 
 private:
+    void closeGesture()
+    {
+        if (gestureOpen)
+        {
+            attachment.endGesture();
+            gestureOpen = false;
+        }
+    }
+
     void onParameterChanged (float v)
     {
         value = v;
@@ -412,8 +446,10 @@ private:
 
                 g.setColour (juce::Colours::white);
                 g.setFont (theme::ui (11.0f, 700));
-                g.drawText (label, cell, juce::Justification::centred, false);
-                theme::check (g, juce::Rectangle<float> (cell.getX() + 6.0f, cell.getCentreY() - 4.0f, 8.0f, 8.0f),
+                // Corte de 6 px à esquerda: o ✓ (x+1 a x+9) fica a pelo menos 4 px do rótulo, que sai quase
+                // centralizado (3 px).
+                g.drawText (label, cell.withTrimmedLeft (6.0f), juce::Justification::centred, false);
+                theme::check (g, juce::Rectangle<float> (cell.getX() + 1.0f, cell.getCentreY() - 4.0f, 8.0f, 8.0f),
                     juce::Colours::white);
             }
             else
@@ -425,7 +461,7 @@ private:
 
                 g.setColour (theme::text);
                 g.setFont (theme::ui (11.0f, 500));
-                g.drawText (label, cell, juce::Justification::centred, false);
+                g.drawText (label, cell.withTrimmedLeft (6.0f), juce::Justification::centred, false); // mesmo slot
             }
         }
     }
@@ -492,6 +528,9 @@ public:
         attachment.sendInitialUpdate();
     }
 
+    // Nunca deixa um gesto do host aberto quando o mini-controle some.
+    ~MiniControl() override { closeGesture(); }
+
     void paint (juce::Graphics& g) override
     {
         const auto bounds = getLocalBounds().toFloat();
@@ -527,6 +566,7 @@ public:
 
     void mouseDown (const juce::MouseEvent& e) override
     {
+        closeGesture(); // um gesto novo nunca começa com outro ainda aberto
         if (e.getNumberOfClicks() >= 2)
             return; // duplo clique: quem trata é mouseDoubleClick
 
@@ -561,14 +601,7 @@ public:
         attachment.setValueAsPartOfGesture (param.convertFrom0to1 (dragNorm));
     }
 
-    void mouseUp (const juce::MouseEvent&) override
-    {
-        if (gestureOpen)
-        {
-            attachment.endGesture();
-            gestureOpen = false;
-        }
-    }
+    void mouseUp (const juce::MouseEvent&) override { closeGesture(); }
 
     void mouseDoubleClick (const juce::MouseEvent&) override
     {
@@ -578,6 +611,15 @@ public:
     std::function<void()> onChange;
 
 private:
+    void closeGesture()
+    {
+        if (gestureOpen)
+        {
+            attachment.endGesture();
+            gestureOpen = false;
+        }
+    }
+
     void onParameterChanged (float v)
     {
         value = v;

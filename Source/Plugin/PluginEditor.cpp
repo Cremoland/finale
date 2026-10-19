@@ -147,6 +147,9 @@ FinaleEditor::FinaleEditor (FinaleProcessor& p) :
     setResizable (false, false);
     setSize (windowWidth, windowHeight);
     startTimerHz (30);
+
+    // Primeira atualização já com o gênero e o alvo, sem esperar o primeiro tick do timer.
+    timerCallback();
 }
 
 FinaleEditor::~FinaleEditor()
