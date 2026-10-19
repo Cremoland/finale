@@ -1,0 +1,482 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Finale · Protótipo 2 · Estúdio</title>
+<!--
+  Direção: "Estúdio", o medidor é o herói (estilo FabFilter Pro-L 2), para quem quer ver números.
+  Paleta: azul-marinho escuro com acento azul-claro. Verde, âmbar e vermelho sempre vêm com texto ou forma.
+  Fonte: Inter (textos) e JetBrains Mono (números), via Google Fonts.
+  Protótipo visual: sem imagens, sem backdrop-filter. Só formas vetoriais, portáveis para juce::Path / ColourGradient.
+-->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #0B1220;
+    --surface: #111A2E;
+    --surface-2: #18233B;
+    --text: #E8EEF8;
+    --text-dim: #8FA0BD;
+    --accent: #5AA9FF;
+    --accent-2: #9CC4FF;
+    --ok: #3DDC97;
+    --warn: #FFC857;
+    --danger: #FF5A5F;
+    --line: #22304D;
+    --sans: Inter, "Segoe UI", system-ui, sans-serif;
+    --mono: "JetBrains Mono", Consolas, monospace;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; min-height: 100vh; background: #1e1e1e;
+    display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 12px;
+    font-family: var(--sans);
+  }
+  .cap { margin: 0; font: 400 12px var(--sans); color: #9a9a9a; }
+  button, [tabindex] { font-family: var(--sans); }
+  button:focus-visible, [tabindex]:focus-visible, input:focus-visible {
+    outline: 2px solid var(--accent-2); outline-offset: 2px;
+  }
+
+  .win {
+    position: relative; width: 820px; height: 500px; overflow: hidden;
+    background: var(--bg); border-radius: 12px; color: var(--text);
+    display: grid; grid-template-rows: 48px 1fr 36px;
+    box-shadow: 0 12px 32px rgba(0, 0, 0, .45), inset 0 0 0 1px #000;
+  }
+  .label {
+    display: block; margin: 0; padding: 0 0 6px;
+    font: 600 10px/1 var(--sans); letter-spacing: .12em; text-transform: uppercase; color: var(--text-dim);
+  }
+
+  /* Topo */
+  .top {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 0 16px; border-bottom: 1px solid var(--surface-2);
+  }
+  .brand { display: flex; align-items: center; gap: 8px; font: 600 13px/1 var(--sans); letter-spacing: .28em; }
+  .brand i { width: 8px; height: 8px; border-radius: 50%; background: var(--accent); box-shadow: 0 0 8px rgba(90, 169, 255, .6); }
+  .preset { font: 400 12px var(--sans); color: var(--text-dim); }
+
+  .main { display: grid; grid-template-columns: 200px 1fr 220px; min-height: 0; }
+
+  /* Esquerda: gênero e caráter */
+  .side { padding: 16px 12px; border-right: 1px solid var(--surface-2); display: flex; flex-direction: column; gap: 20px; }
+  .opts { display: flex; flex-direction: column; gap: 0; }
+  .opt {
+    position: relative; display: flex; align-items: center; height: 24px; width: 100%;
+    padding: 0 10px; border: 0; border-radius: 6px; background: none; cursor: pointer;
+    font: 400 13px var(--sans); color: var(--text-dim); text-align: left;
+  }
+  .opt:hover { background: var(--surface); }
+  .opt[aria-pressed="true"] { color: var(--text); font-weight: 600; background: var(--surface); }
+  .opt[aria-pressed="true"]::before {
+    content: ""; position: absolute; left: 0; top: 4px; bottom: 4px; width: 3px; border-radius: 2px; background: var(--accent);
+  }
+
+  /* Centro: GR, gráfico, leituras */
+  .center {
+    padding: 16px; min-height: 0; display: grid;
+    grid-template-rows: 28px 1fr 76px; gap: 10px;
+  }
+  .gr { display: flex; align-items: center; gap: 10px; }
+  .gr .label { width: 24px; padding: 0; }
+  .track { flex: 1; height: 6px; border-radius: 3px; background: var(--surface-2); overflow: hidden; }
+  #grFill { height: 100%; width: 0; background: var(--danger); }
+  #grVal { width: 72px; text-align: right; font: 400 12px var(--mono); font-variant-numeric: tabular-nums; }
+
+  .graph {
+    position: relative; min-height: 0; overflow: hidden;
+    background: var(--surface); border: 1px solid var(--surface-2); border-radius: 8px;
+  }
+  .graph canvas { position: absolute; inset: 0; width: 100%; height: 100%; }
+  .legend {
+    position: absolute; top: 8px; right: 10px; display: flex; gap: 12px;
+    font: 400 10px var(--sans); color: var(--text-dim); pointer-events: none;
+  }
+  .legend span { display: flex; align-items: center; gap: 4px; }
+  .legend i { display: inline-block; width: 12px; height: 2px; }
+  .k-in { background: var(--text-dim); opacity: .7; }
+  .k-st { background: var(--accent); height: 2px !important; }
+  .k-mo { background: var(--accent-2); height: 1px !important; }
+
+  .readouts { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+  .ro {
+    display: flex; flex-direction: column; justify-content: space-between; min-width: 0;
+    padding: 8px 12px; background: var(--surface); border: 1px solid var(--surface-2); border-radius: 8px;
+  }
+  .ro .label { padding: 0; font-size: 10px; }
+  .val { font: 600 22px/1 var(--mono); font-variant-numeric: tabular-nums; white-space: nowrap; }
+  .val small { margin-left: 4px; font: 400 10px var(--mono); color: var(--text-dim); }
+  .sub { font: 400 10px/1.2 var(--sans); color: var(--text-dim); }
+  .mini { height: 4px; border-radius: 2px; background: var(--surface-2); overflow: hidden; }
+  #stFill { height: 100%; width: 60%; background: var(--accent); }
+
+  /* Direita: knob, assistente, A/B */
+  .right {
+    padding: 12px 16px; border-left: 1px solid var(--surface-2);
+    display: flex; flex-direction: column; align-items: center;
+  }
+  .knob {
+    position: relative; width: 150px; height: 150px; margin-top: 4px; cursor: ns-resize; touch-action: none; border-radius: 50%;
+  }
+  .knob svg { position: absolute; inset: 0; width: 100%; height: 100%; }
+  .knob-readout { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; pointer-events: none; }
+  .knob-readout .num { font: 600 34px/1 var(--mono); font-variant-numeric: tabular-nums; }
+  .knob-readout .pct { margin-top: 4px; font: 400 13px var(--mono); color: var(--text-dim); }
+
+  .asst { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; width: 188px; margin-top: 12px; }
+  .asst .opt { justify-content: center; height: 28px; padding: 0; border: 1px solid var(--line); background: var(--surface); }
+  .asst .opt:hover { background: var(--surface-2); }
+  .asst .opt[aria-pressed="true"] { background: var(--surface-2); border-color: var(--accent); color: var(--text); }
+  .asst .opt[aria-pressed="true"]::before {
+    content: ""; position: static; width: 6px; height: 6px; border-radius: 50%; margin-right: 6px; background: var(--accent);
+  }
+  .status { margin-top: 8px; height: 16px; font: 400 12px/16px var(--sans); text-align: center; color: var(--text); }
+  .status[data-tone="ok"] { color: var(--ok); }
+  .status[data-tone="warn"] { color: var(--warn); }
+  .status[data-tone="acc"] { color: var(--accent-2); }
+
+  .ab { margin-top: auto; width: 188px; display: flex; flex-direction: column; align-items: center; gap: 6px; }
+  .seg {
+    display: grid; grid-template-columns: 1fr 1fr; width: 100%; padding: 2px;
+    background: var(--surface); border: 1px solid var(--line); border-radius: 8px;
+  }
+  .seg button {
+    height: 28px; border: 0; border-radius: 6px; background: none; cursor: pointer;
+    font: 400 12px var(--sans); color: var(--text-dim);
+  }
+  .seg button[aria-pressed="true"] {
+    background: var(--surface-2); color: var(--text); font-weight: 600; box-shadow: inset 0 -2px 0 var(--accent);
+  }
+  .sub-ab { font: 400 11px var(--sans); color: var(--text-dim); }
+
+  /* Barra do Avançado e gaveta */
+  .bar { display: flex; align-items: center; padding: 0 16px; background: var(--surface); border-top: 1px solid var(--surface-2); }
+  .adv {
+    display: flex; align-items: center; gap: 8px; height: 36px; padding: 0; border: 0; background: none; cursor: pointer;
+    font: 600 12px var(--sans); color: var(--text);
+  }
+  .chev {
+    width: 0; height: 0; border-left: 4px solid transparent; border-right: 4px solid transparent;
+    border-bottom: 5px solid var(--text-dim); transition: transform .2s ease;
+  }
+  .adv[aria-expanded="true"] .chev { transform: rotate(180deg); }
+
+  .drawer {
+    position: absolute; left: 0; right: 0; bottom: 36px; height: 128px; padding: 14px 20px;
+    display: flex; flex-direction: column; gap: 12px;
+    background: var(--surface); border-top: 1px solid var(--line); box-shadow: 0 -10px 24px rgba(0, 0, 0, .35);
+    transform: translateY(calc(100% + 36px)); transition: transform .2s ease;
+  }
+  .drawer.open { transform: none; }
+  .mix { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; }
+  .mc-h { display: flex; justify-content: space-between; margin-bottom: 6px; font: 400 11px var(--sans); color: var(--text-dim); }
+  .mc-h b { font: 600 11px var(--mono); font-variant-numeric: tabular-nums; color: var(--text); }
+  input[type="range"] { width: 100%; margin: 0; accent-color: var(--accent); }
+  .lufs { margin-top: auto; display: flex; align-items: center; gap: 16px; }
+  .lufs .label { padding: 0; }
+  .stepper { display: flex; align-items: center; gap: 6px; }
+  .stepper button {
+    width: 28px; height: 28px; border: 1px solid var(--line); border-radius: 6px; background: var(--surface-2);
+    font: 600 14px var(--mono); color: var(--text); cursor: pointer;
+  }
+  .stepper output { min-width: 80px; text-align: center; font: 600 13px var(--mono); font-variant-numeric: tabular-nums; }
+  .chip {
+    height: 28px; padding: 0 12px; border: 1px solid var(--line); border-radius: 14px; background: var(--surface-2);
+    font: 400 12px var(--sans); color: var(--text-dim); cursor: pointer;
+  }
+  .chip[aria-pressed="true"] { color: var(--text); border-color: var(--accent); font-weight: 600; }
+</style>
+</head>
+<body>
+<p class="cap">Versão 2 · Estúdio: medidor primeiro</p>
+
+<div class="win" role="application" aria-label="Finale">
+  <header class="top">
+    <div class="brand"><i aria-hidden="true"></i>FINALE</div>
+    <div class="preset" id="presetTxt">Pop · Clean</div>
+  </header>
+
+  <div class="main">
+    <aside class="side">
+      <div>
+        <span class="label" id="lblGen">Gênero</span>
+        <div class="opts" id="genres" role="group" aria-labelledby="lblGen">
+          <button class="opt" aria-pressed="false">Trap</button>
+          <button class="opt" aria-pressed="false">Rap/Boom bap</button>
+          <button class="opt" aria-pressed="false">Lo-fi</button>
+          <button class="opt" aria-pressed="false">Funk BR</button>
+          <button class="opt" aria-pressed="false">House</button>
+          <button class="opt" aria-pressed="false">EDM</button>
+          <button class="opt" aria-pressed="true">Pop</button>
+          <button class="opt" aria-pressed="false">Rock</button>
+        </div>
+      </div>
+      <div>
+        <span class="label" id="lblCar">Caráter</span>
+        <div class="opts" id="chars" role="group" aria-labelledby="lblCar">
+          <button class="opt" aria-pressed="true">Clean</button>
+          <button class="opt" aria-pressed="false">Warm</button>
+          <button class="opt" aria-pressed="false">Punch</button>
+          <button class="opt" aria-pressed="false">Wide</button>
+          <button class="opt" aria-pressed="false">DOOM</button>
+        </div>
+      </div>
+    </aside>
+
+    <section class="center">
+      <div class="gr">
+        <span class="label">GR</span>
+        <div class="track"><div id="grFill"></div></div>
+        <output id="grVal">−1,6 dB</output>
+      </div>
+
+      <div class="graph">
+        <canvas id="meter" aria-label="Gráfico de loudness ao longo do tempo"></canvas>
+        <div class="legend">
+          <span><i class="k-in"></i>entrada</span>
+          <span><i class="k-st"></i>short-term</span>
+          <span><i class="k-mo"></i>momentâneo</span>
+        </div>
+      </div>
+
+      <div class="readouts">
+        <div class="ro">
+          <span class="label">Integrado</span>
+          <span class="val">−9,6<small>LUFS</small></span>
+          <span class="sub">alvo −9,5 · Pop</span>
+        </div>
+        <div class="ro">
+          <span class="label">Short-term</span>
+          <span class="val"><span id="stVal">−9,5</span><small>LUFS</small></span>
+          <div class="mini"><div id="stFill"></div></div>
+        </div>
+        <div class="ro">
+          <span class="label">True peak</span>
+          <span class="val"><span id="tpVal">−1,2</span><small>dBTP</small></span>
+          <span class="sub">teto −1,0 dBTP</span>
+        </div>
+      </div>
+    </section>
+
+    <section class="right">
+      <span class="label">Amount</span>
+      <div class="knob" id="knob" role="slider" tabindex="0" aria-label="Amount" aria-valuemin="0" aria-valuemax="100" aria-valuenow="62">
+        <svg viewBox="0 0 150 150" aria-hidden="true">
+          <defs>
+            <radialGradient id="cap" cx="50%" cy="40%" r="60%">
+              <stop offset="0" stop-color="#22345A"/>
+              <stop offset="1" stop-color="#111A2E"/>
+            </radialGradient>
+          </defs>
+          <path id="track" fill="none" stroke="#18233B" stroke-width="8" stroke-linecap="round"/>
+          <path id="arc" fill="none" stroke-width="8" stroke-linecap="round" style="stroke: var(--accent)"/>
+          <circle cx="75" cy="75" r="46" fill="url(#cap)" style="stroke: var(--line)" stroke-width="1"/>
+          <path id="ptr" fill="none" stroke-width="3" stroke-linecap="round" style="stroke: var(--accent-2)"/>
+        </svg>
+        <div class="knob-readout"><span class="num" id="amountVal">62</span><span class="pct">%</span></div>
+      </div>
+
+      <span class="label" id="lblAsst" style="align-self: stretch; margin-top: 12px">Assistente</span>
+      <div class="asst" id="asst" role="group" aria-labelledby="lblAsst">
+        <button class="opt" data-v="off" aria-pressed="false">Off</button>
+        <button class="opt" data-v="analisar" aria-pressed="false">Analisar</button>
+        <button class="opt" data-v="auto" aria-pressed="true">Auto</button>
+        <button class="opt" data-v="congelar" aria-pressed="false">Congelar</button>
+      </div>
+      <div class="status" id="status" data-tone="ok" aria-live="polite">Ajustando · +2,4 dB</div>
+
+      <div class="ab">
+        <div class="seg" id="ab" role="group" aria-label="Comparação">
+          <button data-v="a" aria-pressed="true">A · Finale</button>
+          <button data-v="b" aria-pressed="false">B · Original</button>
+        </div>
+        <span class="sub-ab">volume igualado</span>
+      </div>
+    </section>
+  </div>
+
+  <footer class="bar">
+    <button class="adv" id="advBtn" aria-expanded="false" aria-controls="drawer"><span class="chev" aria-hidden="true"></span>Avançado</button>
+  </footer>
+
+  <div class="drawer" id="drawer" inert>
+    <div class="mix">
+      <div><div class="mc-h"><span>EQ</span><b>100 %</b></div><input type="range" min="0" max="100" value="100" aria-label="EQ"></div>
+      <div><div class="mc-h"><span>Compressão</span><b>100 %</b></div><input type="range" min="0" max="100" value="100" aria-label="Compressão"></div>
+      <div><div class="mc-h"><span>Saturação</span><b>100 %</b></div><input type="range" min="0" max="100" value="100" aria-label="Saturação"></div>
+      <div><div class="mc-h"><span>Largura</span><b>100 %</b></div><input type="range" min="0" max="100" value="100" aria-label="Largura"></div>
+    </div>
+    <div class="lufs">
+      <span class="label">Ajuste de LUFS</span>
+      <div class="stepper">
+        <button id="lm" aria-label="Diminuir 0,5 LU">−</button>
+        <output id="adjVal">+0,0 LU</output>
+        <button id="lp" aria-label="Aumentar 0,5 LU">+</button>
+      </div>
+      <button class="chip" id="man" aria-pressed="false">Alvo manual: desligado</button>
+    </div>
+  </div>
+</div>
+
+<script>
+(() => {
+  const $ = s => document.querySelector(s);
+  const $$ = s => [...document.querySelectorAll(s)];
+  const clamp = (v, a, b) => Math.min(b, Math.max(a, v));
+  const fmt = (v, d = 1) => (v < 0 ? '−' : '') + Math.abs(v).toFixed(d).replace('.', ',');
+  const css = n => getComputedStyle(document.documentElement).getPropertyValue(n).trim();
+  const rgba = (h, a) => { const n = parseInt(h.slice(1), 16); return `rgba(${n >> 16},${(n >> 8) & 255},${n & 255},${a})`; };
+
+  // Knob: arco de -135° a +135° (270°), sentido horário a partir do canto inferior esquerdo
+  const knob = $('#knob'), arc = $('#arc'), ptr = $('#ptr'), amountEl = $('#amountVal');
+  const CX = 75, CY = 75, R = 62;
+  let amount = 62;
+  const pt = (a, r) => [(CX + r * Math.sin(a * Math.PI / 180)).toFixed(2), (CY - r * Math.cos(a * Math.PI / 180)).toFixed(2)];
+  const [tx0, ty0] = pt(-135, R), [tx1, ty1] = pt(135, R);
+  $('#track').setAttribute('d', `M${tx0} ${ty0} A${R} ${R} 0 1 1 ${tx1} ${ty1}`);
+  function drawKnob() {
+    const a1 = -135 + 270 * amount / 100;
+    const [x0, y0] = pt(-135, R), [x1, y1] = pt(a1, R);
+    arc.setAttribute('d', amount > 0.5 ? `M${x0} ${y0} A${R} ${R} 0 ${a1 + 135 > 180 ? 1 : 0} 1 ${x1} ${y1}` : '');
+    const [p0x, p0y] = pt(a1, 18), [p1x, p1y] = pt(a1, 40);
+    ptr.setAttribute('d', `M${p0x} ${p0y} L${p1x} ${p1y}`);
+    amountEl.textContent = Math.round(amount);
+    knob.setAttribute('aria-valuenow', Math.round(amount));
+  }
+  function setAmount(v) { amount = clamp(v, 0, 100); drawKnob(); }
+  let drag = null;
+  knob.addEventListener('pointerdown', e => { knob.setPointerCapture(e.pointerId); drag = { y: e.clientY }; knob.focus(); });
+  knob.addEventListener('pointermove', e => {
+    if (!drag) return;
+    const dy = drag.y - e.clientY; drag.y = e.clientY;
+    setAmount(amount + dy * (e.shiftKey ? 0.1 : 0.5));
+  });
+  const endDrag = () => { drag = null; };
+  knob.addEventListener('pointerup', endDrag);
+  knob.addEventListener('pointercancel', endDrag);
+  knob.addEventListener('dblclick', () => setAmount(50));
+  knob.addEventListener('wheel', e => { e.preventDefault(); setAmount(amount - Math.sign(e.deltaY) * (e.shiftKey ? 0.5 : 2)); }, { passive: false });
+  knob.addEventListener('keydown', e => {
+    const dir = { ArrowUp: 1, ArrowRight: 1, ArrowDown: -1, ArrowLeft: -1 }[e.key];
+    if (dir) { e.preventDefault(); setAmount(amount + dir * (e.shiftKey ? 0.1 : 1)); }
+  });
+
+  // Seletores
+  const STATUS = { off: ['Desligado', ''], analisar: ['Analisando · sem alterar', 'acc'], auto: ['Ajustando · +2,4 dB', 'ok'], congelar: ['Congelado · +2,4 dB', 'warn'] };
+  const statusEl = $('#status');
+  let gen = 'Pop', car = 'Clean', ab = 'a';
+  function group(sel, fn) {
+    const btns = $$(sel + ' > button');
+    btns.forEach(b => b.addEventListener('click', () => {
+      btns.forEach(x => x.setAttribute('aria-pressed', String(x === b)));
+      fn(b);
+    }));
+  }
+  const updPreset = () => { $('#presetTxt').textContent = `${gen} · ${car}`; };
+  group('#genres', b => { gen = b.textContent; updPreset(); });
+  group('#chars', b => { car = b.textContent; updPreset(); });
+  group('#asst', b => { const [t, tone] = STATUS[b.dataset.v]; statusEl.textContent = t; statusEl.dataset.tone = tone; });
+  group('#ab', b => { ab = b.dataset.v; });
+
+  // Painel Avançado
+  const advBtn = $('#advBtn'), drawer = $('#drawer');
+  advBtn.addEventListener('click', () => {
+    const open = advBtn.getAttribute('aria-expanded') !== 'true';
+    advBtn.setAttribute('aria-expanded', String(open));
+    drawer.classList.toggle('open', open);
+    drawer.inert = !open;
+  });
+  $$('.mix input').forEach(r => r.addEventListener('input', () => { r.parentElement.querySelector('b').textContent = r.value + ' %'; }));
+  let adj = 0;
+  const setAdj = v => { adj = clamp(Math.round(v * 10) / 10, -6, 6); $('#adjVal').textContent = (adj >= 0 ? '+' : '') + fmt(adj) + ' LU'; };
+  $('#lm').addEventListener('click', () => setAdj(adj - 0.5));
+  $('#lp').addEventListener('click', () => setAdj(adj + 0.5));
+  $('#man').addEventListener('click', e => {
+    const on = e.currentTarget.getAttribute('aria-pressed') !== 'true';
+    e.currentTarget.setAttribute('aria-pressed', String(on));
+    e.currentTarget.textContent = 'Alvo manual: ' + (on ? 'ligado' : 'desligado');
+  });
+
+  // Medidores: passeio aleatório suave, ~30 fps
+  const N = 240; // 8 s de histórico
+  const hST = new Float32Array(N).fill(-9.5), hMO = new Float32Array(N).fill(-9.4), hIN = new Float32Array(N).fill(-13);
+  let st = -9.5, mo = -9.4, inp = -13, tp = -1.3, gr = 1.6;
+  const rnd = () => Math.random() - 0.5;
+  const push = (a, v) => { a.copyWithin(0, 1); a[N - 1] = v; };
+  const stEl = $('#stVal'), tpEl = $('#tpVal'), grEl = $('#grVal'), grFill = $('#grFill'), stFill = $('#stFill');
+  function step() {
+    st = clamp(st + (-9.5 - st) * 0.06 + rnd() * 0.6, -11.2, -7.8);
+    mo = clamp(st + rnd() * 1.4, -12, -6);
+    inp = clamp(st - 3.8 + rnd() * 2.2, -18, -6);
+    tp = clamp(tp + rnd() * 0.08 + (-1.2 - tp) * 0.1, -1.5, -1.1);
+    gr = clamp(gr + rnd() * 0.5 + (1.6 - gr) * 0.08, 0, 4.5);
+    push(hST, st); push(hMO, mo); push(hIN, inp);
+    stEl.textContent = fmt(st); tpEl.textContent = fmt(tp);
+    grEl.textContent = fmt(-gr) + ' dB'; grFill.style.width = (gr / 6 * 100) + '%';
+    stFill.style.width = clamp((st + 24) / 24 * 100, 0, 100) + '%';
+  }
+
+  // Gráfico no canvas
+  const cv = $('#meter'), g = cv.getContext('2d');
+  const ACC = css('--accent'), ACC2 = css('--accent-2'), DIM = css('--text-dim'), LINE = css('--line');
+  let W = 0, H = 0, PL, PR, PT, PB;
+  function size() {
+    const dpr = window.devicePixelRatio || 1, r = cv.getBoundingClientRect();
+    W = r.width; H = r.height; cv.width = W * dpr; cv.height = H * dpr;
+    g.setTransform(dpr, 0, 0, dpr, 0, 0);
+    PL = 32; PR = W - 8; PT = 8; PB = H - 8;
+  }
+  const yOf = v => PT + (-v) / 24 * (PB - PT);
+  function trace(arr) {
+    g.beginPath();
+    for (let i = 0; i < N; i++) {
+      const x = PL + i * (PR - PL) / (N - 1), y = yOf(arr[i]);
+      i ? g.lineTo(x, y) : g.moveTo(x, y);
+    }
+  }
+  function draw() {
+    g.clearRect(0, 0, W, H);
+    // Faixa do alvo: −9,5 ± 1 LU
+    g.fillStyle = rgba(ACC, 0.12);
+    g.fillRect(PL, yOf(-8.5), PR - PL, yOf(-10.5) - yOf(-8.5));
+    g.fillStyle = DIM; g.font = '10px ' + css('--mono');
+    g.fillText('ALVO −9,5 ±1 LU', PL + 6, yOf(-8.5) + 12);
+    // Grade e escala
+    g.strokeStyle = LINE; g.lineWidth = 1;
+    for (const d of [-6, -12, -18, -24]) {
+      const y = Math.round(yOf(d)) + 0.5;
+      g.beginPath(); g.moveTo(PL, y); g.lineTo(PR, y); g.stroke();
+      g.fillStyle = DIM; g.fillText(fmt(d, 0), 4, y + 4);
+    }
+    // Entrada (fina, apagada)
+    trace(hIN); g.strokeStyle = rgba(DIM, 0.7); g.lineWidth = 1; g.stroke();
+    // Short-term: área + linha. Em B (original) a cor apaga para o estado ficar distinguível
+    const outC = ab === 'b' ? DIM : ACC;
+    const grad = g.createLinearGradient(0, PT, 0, PB);
+    grad.addColorStop(0, rgba(outC, 0.35)); grad.addColorStop(1, rgba(outC, 0));
+    trace(hST); g.lineTo(PR, PB); g.lineTo(PL, PB); g.closePath(); g.fillStyle = grad; g.fill();
+    trace(hST); g.strokeStyle = outC; g.lineWidth = 2; g.stroke();
+    // Momentâneo: linha fina
+    trace(hMO); g.strokeStyle = ACC2; g.lineWidth = 1; g.stroke();
+  }
+
+  // Loop limitado a ~30 fps
+  let last = 0;
+  function loop(t) {
+    requestAnimationFrame(loop);
+    if (t - last < 33) return;
+    last = t; step(); draw();
+  }
+
+  window.addEventListener('resize', size);
+  size(); drawKnob(); updPreset();
+  requestAnimationFrame(loop);
+})();
+</script>
+</body>
+</html>
