@@ -49,6 +49,8 @@
   .num { color: var(--accent); font-weight: 600; font-size: 14px; font-variant-numeric: tabular-nums; }
   .name { font-size: 20px; font-weight: 600; margin: 0; }
   .idea { color: var(--muted); margin: 0; font-size: 14px; }
+  .round { max-width: 1240px; margin: 0 auto 48px; }
+  .round-title { font-size: 18px; font-weight: 600; color: var(--muted); margin: 0 0 16px; }
   /* Contêiner no tamanho escalado (900x600 * 0.6 = 540x360). */
   .frame {
     width: 540px;
@@ -90,10 +92,39 @@
 <body>
   <header>
     <h1>Finale · protótipos de interface</h1>
-    <p class="intro">Cinco direções para escolher. Clique em 'abrir em tamanho real' para interagir.</p>
+    <p class="intro">Oito direções em duas rodadas. Clique em 'abrir em tamanho real' para interagir.</p>
   </header>
 
-  <main class="grid">
+  <main>
+  <section class="round">
+    <h2 class="round-title">Rodada 2 · Noir + Papel</h2>
+    <div class="grid">
+    <article class="card">
+      <div class="head"><span class="num">06</span><h2 class="name">Marfim</h2></div>
+      <p class="idea">O layout do Noir no marfim do Papel: a estrutura que você gostou com a luz que você gostou.</p>
+      <div class="frame"><iframe src="v6-marfim.html" title="Marfim" loading="lazy"></iframe></div>
+      <a class="link" href="v6-marfim.html">abrir em tamanho real ↗</a>
+    </article>
+
+    <article class="card">
+      <div class="head"><span class="num">07</span><h2 class="name">Noir editorial</h2></div>
+      <p class="idea">O escuro e o knob com brilho do Noir, organizados como página editorial, com texto em marfim.</p>
+      <div class="frame"><iframe src="v7-noir-editorial.html" title="Noir editorial" loading="lazy"></iframe></div>
+      <a class="link" href="v7-noir-editorial.html">abrir em tamanho real ↗</a>
+    </article>
+
+    <article class="card">
+      <div class="head"><span class="num">08</span><h2 class="name">Dia e Noite</h2></div>
+      <p class="idea">Um layout, dois temas: botão ☀/☾ troca entre marfim e Noir na hora.</p>
+      <div class="frame"><iframe src="v8-dia-noite.html" title="Dia e Noite" loading="lazy"></iframe></div>
+      <a class="link" href="v8-dia-noite.html">abrir em tamanho real ↗</a>
+    </article>
+    </div>
+  </section>
+
+  <section class="round">
+    <h2 class="round-title">Rodada 1</h2>
+    <div class="grid">
     <article class="card">
       <div class="head"><span class="num">01</span><h2 class="name">Noir</h2></div>
       <p class="idea">A mais próxima do Soundgoodizer, mas premium. A tela é quase só o knob.</p>
@@ -128,6 +159,8 @@
       <div class="frame"><iframe src="v5-latao.html" title="Latão" loading="lazy"></iframe></div>
       <a class="link" href="v5-latao.html">abrir em tamanho real ↗</a>
     </article>
+    </div>
+  </section>
   </main>
 <script>
   // Escala cada prévia (iframe de 900 px) para caber na largura do quadro

@@ -154,6 +154,8 @@ button { font-family: var(--sans); }
   color: var(--text-dim);
 }
 .status i { width: 6px; height: 6px; border-radius: 50%; background: var(--accent); }
+.status[data-v="off"] i { background: transparent; box-shadow: inset 0 0 0 1.5px var(--text-dim); }
+.status[data-v="congelar"] i { background: var(--text-dim); }
 
 /* ---------- Corpo: knob + listas ---------- */
 .body {
@@ -161,6 +163,7 @@ button { font-family: var(--sans); }
   min-height: 0;
   display: grid;
   grid-template-columns: 280px 1fr;
+  grid-template-rows: minmax(0, 1fr);
   column-gap: 40px;
   align-items: center;
   padding: 0 32px;
@@ -218,12 +221,20 @@ button { font-family: var(--sans); }
 .choices {
   align-self: center;
   display: grid;
-  grid-template-columns: 200px 180px;
-  column-gap: 40px;
+  grid-template-columns: 1fr 96px;
+  column-gap: 32px;
   align-items: start;
 }
 .list .kicker { margin-bottom: 8px; }
 .list ul { list-style: none; display: flex; flex-direction: column; }
+/* Gênero em duas colunas de quatro, como no v8, para caber com o Avançado aberto */
+.list .genres {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  grid-template-rows: repeat(4, 26px);
+  grid-auto-flow: column;
+  column-gap: 16px;
+}
 .list button {
   display: flex;
   align-items: center;
@@ -378,7 +389,7 @@ button { font-family: var(--sans); }
         <button type="button" role="radio" aria-checked="true" data-v="auto">Auto</button>
         <button type="button" role="radio" aria-checked="false" data-v="congelar">Congelar</button>
       </div>
-      <span class="status" aria-live="polite"><i aria-hidden="true"></i><span id="assistStatus">Ajustando · +2,4 dB</span></span>
+      <span class="status" id="status" data-v="auto" aria-live="polite"><i aria-hidden="true"></i><span id="assistStatus">Ajustando · +2,4 dB</span></span>
     </div>
   </header>
 
@@ -410,7 +421,7 @@ button { font-family: var(--sans); }
     <section class="choices">
       <div class="list">
         <span class="kicker">Gênero</span>
-        <ul role="radiogroup" aria-label="Gênero" data-group="genre">
+        <ul class="genres" role="radiogroup" aria-label="Gênero" data-group="genre">
           <li><button type="button" role="radio" aria-checked="false">Trap</button></li>
           <li><button type="button" role="radio" aria-checked="false">Rap/Boom bap</button></li>
           <li><button type="button" role="radio" aria-checked="false">Lo-fi</button></li>
@@ -587,7 +598,10 @@ button { font-family: var(--sans); }
     if (!b || !group.contains(b)) return;
     const opts = $$('[role="radio"]', group);
     opts.forEach((x) => x.setAttribute('aria-checked', String(x === b)));
-    if (group.dataset.group === 'assist') $('#assistStatus').textContent = ASSIST[b.dataset.v];
+    if (group.dataset.group === 'assist') {
+      $('#assistStatus').textContent = ASSIST[b.dataset.v];
+      $('#status').dataset.v = b.dataset.v;
+    }
     if (group.dataset.group === 'genre') renderGenre(opts.indexOf(b));
   }));
   renderGenre(Math.max(0, $$('[data-group="genre"] [role="radio"]').findIndex((b) => b.getAttribute('aria-checked') === 'true')));

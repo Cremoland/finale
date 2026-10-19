@@ -102,18 +102,19 @@ button { font-family: var(--sans); }
 .top {
   flex: none;
   height: 64px;
-  display: flex;
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
   align-items: center;
-  justify-content: space-between;
   padding: 0 24px;
 }
 .wordmark {
+  justify-self: start;
   font: 600 22px/32px var(--serif);
   letter-spacing: 0.24em;
   color: var(--text);
 }
-.assist { display: flex; flex-direction: column; align-items: center; gap: 4px; }
-.top-r { display: flex; flex-direction: column; align-items: flex-end; gap: 4px; }
+.assist { justify-self: center; display: flex; flex-direction: column; align-items: center; gap: 4px; }
+.top-r { justify-self: end; display: flex; flex-direction: column; align-items: flex-end; gap: 4px; }
 .row { display: flex; align-items: center; gap: 8px; }
 .sub { font: 400 11px/16px var(--sans); color: var(--text-dim); }
 
@@ -227,6 +228,8 @@ button { font-family: var(--sans); }
 }
 .num .pct { margin-left: 4px; font-size: calc(var(--knob) * 0.075); color: var(--text-dim); }
 .cap { margin-top: 8px; font: 500 11px/16px var(--sans); letter-spacing: 0.2em; color: var(--text-dim); }
+:root[data-theme="dark"] .cap,
+:root[data-theme="dark"] .num .pct { color: #A3ADBE; }
 
 /* Controles: gênero (lista tipográfica) e caráter (chips) */
 .controls { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; justify-content: center; gap: 24px; }
@@ -327,8 +330,9 @@ button { font-family: var(--sans); }
 .st-target {
   position: absolute;
   left: 34px;
-  width: 136px;
-  font: 500 12px/16px var(--sans);
+  right: 0;
+  white-space: nowrap;
+  font: 500 11px/16px var(--sans);
   color: var(--text);
   transform: translateY(-50%);
 }
@@ -404,7 +408,7 @@ button { font-family: var(--sans); }
   cursor: pointer;
 }
 .adv-btn:hover { background: var(--surface-2); }
-.caret { display: inline-block; transition: transform 0.2s ease; }
+.caret { display: inline-block; font-size: 12px; color: var(--text); transition: transform 0.2s ease; }
 .adv-btn[aria-expanded="true"] .caret { transform: rotate(90deg); }
 .hint { font: 400 12px/16px var(--sans); color: var(--text-dim); }
 </style>
