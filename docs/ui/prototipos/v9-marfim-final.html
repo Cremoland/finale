@@ -1,0 +1,732 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Finale · Protótipo v9 Marfim final</title>
+<!--
+  Direção "Marfim final": a v6 refinada, com o mesmo layout e a mesma paleta.
+  Mudanças: fonte de interface trocável ao vivo (Manrope, Sora ou Outfit; números sempre em IBM Plex Mono),
+  box de preset com resumo vivo ("Pop · Clean") e box de loudness com faixa de acento, pílula de estado e integrado em 44 px.
+  Paleta: tokens em :root (--bg #F4F1EA, --surface #FFFFFF, --surface-2 #ECE7DC, --text #1C1B19,
+  --text-dim #5E5A52, --accent #1F7A72, --accent-2 #2F5BEA, --ok #1F8A5B, --warn #B7791F, --danger #C53030).
+  Só formas vetoriais e sombras simples, sem backdrop-filter, imagens ou 3D, para portar a juce::Path e ColourGradient.
+-->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=Manrope:wght@400;500;600;700;800&family=Outfit:wght@400;500;600;700;800&family=Sora:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #F4F1EA;
+    --surface: #FFFFFF;
+    --surface-2: #ECE7DC;
+    --rule: #D9D2C4;
+    --line: #BDB5A4;
+    --text: #1C1B19;
+    --text-dim: #5E5A52;
+    --accent: #1F7A72;
+    --accent-2: #2F5BEA;
+    --ok: #1F8A5B;
+    --warn: #B7791F;
+    --danger: #C53030;
+    --font-ui: "Manrope", system-ui, sans-serif;
+    --font-mono: "IBM Plex Mono", Consolas, ui-monospace, monospace;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    min-height: 100vh;
+    padding: 48px 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    background: #1e1e1e;
+    color: var(--text);
+    font-family: var(--font-ui);
+    -webkit-font-smoothing: antialiased;
+  }
+
+  button { font-family: inherit; }
+  :focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+  .caption { margin-top: 16px; font-size: 13px; line-height: 16px; color: #A3A3A3; text-align: center; }
+
+  /* Seletor de fonte, fora da janela */
+  .fonts { margin-top: 14px; display: flex; align-items: center; justify-content: center; gap: 6px; }
+  .fonts-lbl { margin-right: 4px; font: 500 12px/16px var(--font-ui); color: #A3A3A3; }
+  .fonts button {
+    height: 28px;
+    padding: 0 12px;
+    border: 1px solid #4A4A4A;
+    border-radius: 14px;
+    background: transparent;
+    color: #E8E6E1;
+    font: 500 12px/16px var(--font-ui);
+    cursor: pointer;
+  }
+  .fonts button:hover { border-color: #A3A3A3; }
+  .fonts button[aria-pressed="true"] { background: var(--accent); border-color: var(--accent); color: #FFFFFF; font-weight: 700; }
+  .fonts :focus-visible { outline-color: #E8E6E1; }
+
+  /* Janela do plugin: 820 x 500. A altura do knob é calculada para caber a coluna esquerda (ver README no relatório). */
+  .win {
+    --knob: 180px;
+    position: relative;
+    width: 820px;
+    height: 500px;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    background: var(--bg);
+    border-radius: 12px;
+    box-shadow: 0 24px 48px rgba(0, 0, 0, 0.45);
+  }
+  .win.adv-open { --knob: 116px; }
+
+  .kicker {
+    font: 600 11px/16px var(--font-ui);
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--text-dim);
+  }
+  .n { font-family: var(--font-mono); font-variant-numeric: tabular-nums; }
+  .num-s { font-family: var(--font-mono); font-size: 12px; line-height: 16px; font-weight: 500; font-variant-numeric: tabular-nums; color: var(--text); }
+
+  /* Topo */
+  .top {
+    flex: none;
+    height: 72px;
+    padding: 0 32px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+  .wordmark {
+    font: 800 22px/24px var(--font-ui);
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    color: var(--text);
+  }
+  .top-right { display: flex; align-items: flex-start; gap: 24px; }
+  .block { display: flex; flex-direction: column; align-items: flex-end; gap: 8px; }
+
+  .seg {
+    display: inline-flex;
+    gap: 2px;
+    padding: 2px;
+    height: 32px;
+    background: var(--surface-2);
+    border-radius: 8px;
+  }
+  .seg button {
+    height: 28px;
+    padding: 0 10px;
+    border: 0;
+    border-radius: 6px;
+    background: transparent;
+    color: var(--text-dim);
+    font: 500 12px/16px var(--font-ui);
+    white-space: nowrap;
+    cursor: pointer;
+  }
+  .seg button:hover { color: var(--text); }
+  .seg button[aria-pressed="true"] {
+    background: var(--surface);
+    color: var(--text);
+    font-weight: 600;
+    box-shadow: 0 1px 2px rgba(28, 27, 25, 0.12), inset 0 -2px 0 var(--accent);
+  }
+
+  .status {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    height: 16px;
+    font: 400 12px/16px var(--font-ui);
+    color: var(--text);
+  }
+  .status i { width: 6px; height: 6px; border-radius: 50%; background: var(--accent); }
+  .status[data-v="off"] i { background: transparent; box-shadow: inset 0 0 0 1.5px var(--text-dim); }
+  .status[data-v="congelar"] i { background: var(--text-dim); }
+  .sub { height: 16px; font: 400 12px/16px var(--font-ui); color: var(--text-dim); }
+
+  /* Corpo: 12 px de respiro vertical (antes 16) para caber o box de preset */
+  .main {
+    flex: 1 1 auto;
+    min-height: 0;
+    display: flex;
+    gap: 24px;
+    padding: 12px 32px;
+  }
+  .left {
+    flex: 1 1 auto;
+    min-width: 0;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+  .knob-area { flex: 1 1 auto; min-height: 0; display: flex; align-items: center; justify-content: center; }
+
+  .knob {
+    position: relative;
+    flex: none;
+    width: var(--knob);
+    height: var(--knob);
+    border-radius: 50%;
+    cursor: ns-resize;
+    touch-action: none;
+    user-select: none;
+    transition: width 0.25s ease, height 0.25s ease;
+  }
+  .knob:focus-visible { outline: 2px solid var(--accent); outline-offset: 4px; }
+  .knob svg { position: absolute; inset: 0; width: 100%; height: 100%; overflow: visible; }
+  .track { fill: none; stroke: var(--rule); stroke-width: 14; stroke-linecap: round; }
+  .val-arc { fill: none; stroke: var(--accent); stroke-width: 14; stroke-linecap: round; }
+  .tick { stroke: var(--text-dim); stroke-width: 2; stroke-linecap: round; opacity: 0.5; }
+  .disc { fill: var(--surface); filter: drop-shadow(0 2px 4px rgba(28, 27, 25, 0.14)); }
+  .ptr { stroke: var(--text); stroke-width: 4; stroke-linecap: round; }
+
+  .readout {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    pointer-events: none;
+  }
+  .num {
+    display: flex;
+    align-items: baseline;
+    font-family: var(--font-mono);
+    font-size: calc(var(--knob) * 0.2);
+    font-weight: 500;
+    line-height: 1;
+    letter-spacing: -0.02em;
+    font-variant-numeric: tabular-nums;
+    color: var(--text);
+  }
+  .pct { margin-left: 2px; font-family: var(--font-mono); font-size: calc(var(--knob) * 0.08); color: var(--text-dim); }
+  .cap { margin-top: 6px; font: 700 10px/12px var(--font-ui); letter-spacing: 0.16em; color: var(--text-dim); }
+
+  /* Box de preset: mesmo raio, borda e sombra do box de loudness.
+     Altura fixa: 24 (padding) + 18 (cabeçalho) + 8 + 52 (gênero) + 8 + 52 (caráter) = 162 px */
+  .preset {
+    flex: none;
+    height: 162px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    padding: 12px 16px;
+    background: var(--surface);
+    border: 1px solid var(--surface-2);
+    border-radius: 12px;
+    box-shadow: 0 10px 28px rgba(28, 27, 25, 0.10), 0 2px 6px rgba(28, 27, 25, 0.06);
+  }
+  .preset-h { height: 18px; display: flex; align-items: center; justify-content: space-between; }
+  .preset-sum { font: 700 13px/18px var(--font-ui); color: var(--text); white-space: nowrap; }
+  .group { display: flex; flex-direction: column; gap: 6px; }
+  .grp-lbl { font: 700 11px/14px var(--font-ui); letter-spacing: 0.12em; text-transform: uppercase; color: var(--text); }
+  .chips { display: flex; flex-wrap: wrap; gap: 4px; }
+  .chip {
+    flex: 1 1 auto;
+    height: 32px;
+    padding: 0 6px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 4px;
+    border: 1px solid var(--surface-2);
+    border-radius: 16px;
+    background: var(--bg);
+    color: var(--text);
+    font: 500 12px/16px var(--font-ui);
+    white-space: nowrap;
+    cursor: pointer;
+    transition: background-color 0.15s ease, color 0.15s ease, border-color 0.15s ease, box-shadow 0.15s ease;
+  }
+  .chip:hover { border-color: var(--line); }
+  .chip[aria-pressed="true"] {
+    background: var(--accent);
+    border-color: var(--accent);
+    color: #FFFFFF;
+    font-weight: 700;
+    box-shadow: 0 2px 8px rgba(31, 122, 114, 0.35);
+  }
+  .chip[aria-pressed="true"]::before { content: "✓"; font-size: 11px; font-weight: 700; }
+
+  /* Medidores (cartão branco com faixa de acento no topo) */
+  .meter {
+    position: relative;
+    flex: none;
+    width: 216px;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    gap: 8px;
+    padding: 14px 20px;
+    background: var(--surface);
+    border: 1px solid var(--surface-2);
+    border-radius: 12px;
+    box-shadow: 0 10px 28px rgba(28, 27, 25, 0.10), 0 2px 6px rgba(28, 27, 25, 0.06);
+  }
+  .meter::before {
+    content: "";
+    position: absolute;
+    left: 0; right: 0; top: 0;
+    height: 4px;
+    background: var(--accent);
+    border-radius: 12px 12px 0 0;
+  }
+  .m-head { height: 22px; display: flex; align-items: center; justify-content: space-between; }
+  .pill {
+    flex: none;
+    height: 20px;
+    padding: 0 8px;
+    border-radius: 10px;
+    background: var(--surface-2);
+    color: var(--text);
+    font: 600 11px/20px var(--font-ui);
+    white-space: nowrap;
+    transition: background-color 0.15s ease, color 0.15s ease;
+  }
+  .pill[data-s="ok"] { background: var(--accent); color: #FFFFFF; }
+  .m-big { display: flex; align-items: baseline; }
+  .big { font: 500 44px/44px var(--font-mono); letter-spacing: -0.02em; font-variant-numeric: tabular-nums; color: var(--text); }
+  .unit { margin-left: 6px; font: 500 13px/16px var(--font-ui); color: var(--text-dim); }
+  .m-sec { display: flex; flex-direction: column; gap: 8px; }
+  .m-row { display: flex; justify-content: space-between; align-items: baseline; }
+  .lbl { font: 400 12px/16px var(--font-ui); color: var(--text-dim); }
+  .val { font: 500 13px/16px var(--font-mono); font-variant-numeric: tabular-nums; color: var(--text); }
+  .m-note { font: 400 11px/14px var(--font-ui); color: var(--text-dim); }
+
+  .st { position: relative; padding-top: 18px; }
+  .tlabel {
+    position: absolute;
+    top: 0;
+    transform: translateX(-50%);
+    font: 600 12px/16px var(--font-ui);
+    white-space: nowrap;
+    color: var(--text);
+  }
+  .bar { position: relative; height: 12px; border-radius: 6px; background: var(--surface-2); }
+  .bar.thin { height: 6px; border-radius: 3px; }
+  .fill { position: absolute; left: 0; top: 0; bottom: 0; width: 0; border-radius: inherit; background: var(--accent); }
+  .fill.gr { background: var(--warn); }
+  .band { position: absolute; top: 0; bottom: 0; width: 10%; background: rgba(31, 122, 114, 0.22); }
+  .tline { position: absolute; top: -4px; bottom: -4px; width: 2px; margin-left: -1px; border-radius: 1px; background: var(--text); }
+  .ceil { position: absolute; top: -4px; bottom: -4px; left: 83.33%; width: 2px; margin-left: -1px; border-radius: 1px; background: var(--text); }
+  .scale {
+    display: flex;
+    justify-content: space-between;
+    margin-top: 6px;
+    font: 400 11px/14px var(--font-mono);
+    color: var(--text-dim);
+  }
+
+  /* Avançado: 64 px fixos */
+  .adv-wrap { flex: none; display: grid; grid-template-rows: 0fr; transition: grid-template-rows 0.25s ease; }
+  .win.adv-open .adv-wrap { grid-template-rows: 1fr; }
+  .adv { min-height: 0; overflow: hidden; }
+  .adv-panel {
+    height: 64px;
+    display: flex;
+    align-items: center;
+    gap: 24px;
+    padding: 12px 32px;
+    background: var(--surface);
+    border-top: 1px solid var(--rule);
+  }
+  .mini { flex: 1 1 0; min-width: 0; display: flex; flex-direction: column; gap: 10px; }
+  .mini-h { display: flex; justify-content: space-between; font: 400 11px/16px var(--font-ui); color: var(--text-dim); }
+  .mini-bar { height: 4px; border-radius: 2px; background: var(--surface-2); overflow: hidden; }
+  .mini-bar i { display: block; width: 100%; height: 100%; background: var(--accent); }
+  .info-col {
+    flex: none;
+    width: 200px;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    padding-left: 24px;
+    border-left: 1px solid var(--rule);
+  }
+  .info { display: flex; justify-content: space-between; align-items: center; height: 16px; font: 400 12px/16px var(--font-ui); color: var(--text-dim); }
+  .toggle {
+    height: 20px;
+    padding: 0 8px;
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    background: var(--surface);
+    color: var(--text);
+    font: 500 12px/16px var(--font-ui);
+    cursor: pointer;
+  }
+  .toggle[aria-pressed="true"] { background: var(--accent); border-color: var(--accent); color: #FFFFFF; font-weight: 600; }
+
+  /* Rodapé */
+  .foot {
+    flex: none;
+    height: 48px;
+    padding: 0 32px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    border-top: 1px solid var(--rule);
+  }
+  .adv-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    height: 32px;
+    margin-left: -8px;
+    padding: 0 8px;
+    border: 0;
+    border-radius: 8px;
+    background: transparent;
+    color: var(--text);
+    font: 600 13px/16px var(--font-ui);
+    cursor: pointer;
+  }
+  .adv-btn:hover { background: var(--surface-2); }
+  .caret { display: inline-block; font-size: 12px; color: var(--text); transition: transform 0.2s ease; }
+  .win.adv-open .caret { transform: rotate(90deg); }
+  .hint { font: 400 12px/16px var(--font-ui); color: var(--text-dim); }
+</style>
+</head>
+<body>
+<div class="win" id="win">
+
+  <header class="top">
+    <h1 class="wordmark">Finale</h1>
+    <div class="top-right">
+      <div class="block">
+        <div class="seg" role="group" id="assistSeg" aria-label="Assistente">
+          <button type="button" data-v="off" aria-pressed="false">Off</button>
+          <button type="button" data-v="analisar" aria-pressed="false">Analisar</button>
+          <button type="button" data-v="auto" aria-pressed="true">Auto</button>
+          <button type="button" data-v="congelar" aria-pressed="false">Congelar</button>
+        </div>
+        <div class="status" id="status" data-v="auto" aria-live="polite"><i aria-hidden="true"></i><span id="assistStatus">Ajustando · <span class="n">+2,4 dB</span></span></div>
+      </div>
+      <div class="block">
+        <div class="seg" role="group" aria-label="Comparação A/B">
+          <button type="button" aria-pressed="true">A · Finale</button>
+          <button type="button" aria-pressed="false">B · Original</button>
+        </div>
+        <div class="sub">volume igualado</div>
+      </div>
+    </div>
+  </header>
+
+  <main class="main">
+    <section class="left">
+      <div class="knob-area">
+        <div class="knob" id="knob" role="slider" tabindex="0" aria-label="Amount" aria-valuemin="0" aria-valuemax="100" aria-valuenow="62" aria-valuetext="62 por cento" title="Arraste para cima ou para baixo. Shift: ajuste fino. Duplo clique: 50 %">
+          <svg viewBox="0 0 200 200" aria-hidden="true" focusable="false">
+            <path id="trackArc" class="track" d=""/>
+            <path id="valArc" class="val-arc" d=""/>
+            <g id="ticks"></g>
+            <circle class="disc" cx="100" cy="100" r="64"/>
+            <line id="ptr" class="ptr" x1="100" y1="52" x2="100" y2="42"/>
+          </svg>
+          <div class="readout">
+            <div class="num"><span id="readout">62</span><span class="pct">%</span></div>
+            <div class="cap">AMOUNT</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="preset">
+        <div class="preset-h">
+          <span class="kicker">Preset</span>
+          <span class="preset-sum" id="presetSum">Pop · Clean</span>
+        </div>
+        <div class="group">
+          <span class="grp-lbl">Gênero</span>
+          <div class="chips" role="group" aria-label="Gênero">
+            <button type="button" class="chip" aria-pressed="false">Trap</button>
+            <button type="button" class="chip" aria-pressed="false">Rap/Boom bap</button>
+            <button type="button" class="chip" aria-pressed="false">Lo-fi</button>
+            <button type="button" class="chip" aria-pressed="false">Funk BR</button>
+            <button type="button" class="chip" aria-pressed="false">House</button>
+            <button type="button" class="chip" aria-pressed="false">EDM</button>
+            <button type="button" class="chip" aria-pressed="true">Pop</button>
+            <button type="button" class="chip" aria-pressed="false">Rock</button>
+          </div>
+        </div>
+        <div class="group">
+          <span class="grp-lbl">Caráter</span>
+          <div class="chips" role="group" aria-label="Caráter">
+            <button type="button" class="chip" aria-pressed="true">Clean</button>
+            <button type="button" class="chip" aria-pressed="false">Warm</button>
+            <button type="button" class="chip" aria-pressed="false">Punch</button>
+            <button type="button" class="chip" aria-pressed="false">Wide</button>
+            <button type="button" class="chip" aria-pressed="false">DOOM</button>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <aside class="meter" aria-label="Medidores de loudness">
+      <div class="m-head">
+        <span class="kicker">Loudness</span>
+        <span class="pill" id="pill" data-s="ok" aria-live="polite">✓ no alvo</span>
+      </div>
+
+      <div class="m-big"><span class="big" id="lufsVal">−9,6</span><span class="unit">LUFS</span></div>
+
+      <div class="m-sec">
+        <div class="m-row"><span class="lbl">Curto prazo</span><span class="val" id="shortVal">−9,0</span></div>
+        <div class="st">
+          <span class="tlabel" id="tlabel">alvo <span class="n">−9,5</span> · Pop</span>
+          <div class="bar">
+            <div class="band" id="tband"></div>
+            <div class="fill" id="shortFill" style="width:55%"></div>
+            <div class="tline" id="tline"></div>
+          </div>
+          <div class="scale"><span>−20</span><span>0</span></div>
+        </div>
+      </div>
+
+      <div class="m-sec">
+        <div class="m-row"><span class="lbl">True peak</span><span class="val" id="tpVal">−1,2 dBTP</span></div>
+        <div class="bar thin">
+          <div class="fill" id="tpFill" style="width:80%"></div>
+          <div class="ceil" aria-hidden="true"></div>
+        </div>
+        <div class="m-note">teto <span class="n">−1,0 dBTP</span></div>
+      </div>
+
+      <div class="m-sec">
+        <div class="m-row"><span class="lbl">GR limiter</span><span class="val" id="grVal">−1,6 dB</span></div>
+        <div class="bar thin"><div class="fill gr" id="grFill" style="width:13.3%"></div></div>
+      </div>
+    </aside>
+  </main>
+
+  <div class="adv-wrap">
+    <div class="adv" id="adv" inert>
+      <div class="adv-panel">
+        <div class="mini"><div class="mini-h"><span>EQ</span><span class="num-s">100 %</span></div><div class="mini-bar"><i></i></div></div>
+        <div class="mini"><div class="mini-h"><span>Compressão</span><span class="num-s">100 %</span></div><div class="mini-bar"><i></i></div></div>
+        <div class="mini"><div class="mini-h"><span>Saturação</span><span class="num-s">100 %</span></div><div class="mini-bar"><i></i></div></div>
+        <div class="mini"><div class="mini-h"><span>Largura</span><span class="num-s">100 %</span></div><div class="mini-bar"><i></i></div></div>
+        <div class="info-col">
+          <div class="info"><span>Ajuste de LUFS</span><span class="num-s">+0,0 LU</span></div>
+          <div class="info"><span>Alvo manual:</span><button type="button" class="toggle" id="manual" aria-pressed="false"><span id="manualState">desligado</span></button></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <footer class="foot">
+    <button type="button" class="adv-btn" id="advBtn" aria-expanded="false" aria-controls="adv">Avançado <span class="caret" aria-hidden="true">▸</span></button>
+    <span class="hint">Arraste · Shift: fino · Duplo clique: <span class="n">50 %</span></span>
+  </footer>
+</div>
+<p class="caption">Versão 9 · Marfim final</p>
+<div class="fonts" role="group" aria-label="Fonte da interface">
+  <span class="fonts-lbl">Fonte:</span>
+  <button type="button" data-font="Manrope" aria-pressed="true">Manrope</button>
+  <button type="button" data-font="Sora" aria-pressed="false">Sora</button>
+  <button type="button" data-font="Outfit" aria-pressed="false">Outfit</button>
+</div>
+
+<script>
+(() => {
+  'use strict';
+  const NS = 'http://www.w3.org/2000/svg';
+  const $ = (s) => document.querySelector(s);
+  const $$ = (s, root = document) => [...root.querySelectorAll(s)];
+  const clamp = (v, a, b) => Math.min(b, Math.max(a, v));
+  const fmt = (v, d = 1) => (v < 0 ? '−' : '') + Math.abs(v).toFixed(d).replace('.', ',');
+  const win = $('#win');
+
+  /* Fonte da interface: troca --font-ui (texto e wordmark); números seguem em --font-mono */
+  const FONTS = {
+    Manrope: '"Manrope", system-ui, sans-serif',
+    Sora: '"Sora", system-ui, sans-serif',
+    Outfit: '"Outfit", system-ui, sans-serif',
+  };
+  $('.fonts').addEventListener('click', (e) => {
+    const b = e.target.closest('button');
+    if (!b || !FONTS[b.dataset.font]) return;
+    document.documentElement.style.setProperty('--font-ui', FONTS[b.dataset.font]);
+  });
+
+  /* Knob "Amount": arco de 270°, ponteiro e número. Ângulo 0 = topo, sentido horário. */
+  const C = 100, R = 84, START = -135, SPAN = 270;
+  const P = (a, r) => [C + r * Math.sin(a * Math.PI / 180), C - r * Math.cos(a * Math.PI / 180)];
+  const arc = (a0, a1) => {
+    const [x0, y0] = P(a0, R), [x1, y1] = P(a1, R);
+    return `M${x0.toFixed(2)} ${y0.toFixed(2)}A${R} ${R} 0 ${a1 - a0 > 180 ? 1 : 0} 1 ${x1.toFixed(2)} ${y1.toFixed(2)}`;
+  };
+  const knob = $('#knob'), valArc = $('#valArc'), ptr = $('#ptr'), readout = $('#readout');
+  let amount = 62;
+  $('#trackArc').setAttribute('d', arc(START, START + SPAN));
+  const ticks = $('#ticks');
+  for (let i = 0; i <= 10; i++) {
+    const a = START + SPAN * i / 10;
+    const [x1, y1] = P(a, 94), [x2, y2] = P(a, i % 5 ? 97 : 99);
+    const l = document.createElementNS(NS, 'line');
+    l.setAttribute('x1', x1.toFixed(2)); l.setAttribute('y1', y1.toFixed(2));
+    l.setAttribute('x2', x2.toFixed(2)); l.setAttribute('y2', y2.toFixed(2));
+    l.setAttribute('class', 'tick');
+    ticks.appendChild(l);
+  }
+  const render = () => {
+    const end = START + SPAN * amount / 100;
+    valArc.setAttribute('d', amount > 0.05 ? arc(START, end) : '');
+    ptr.setAttribute('transform', `rotate(${end.toFixed(2)} ${C} ${C})`);
+    const v = Math.round(amount);
+    readout.textContent = v;
+    knob.setAttribute('aria-valuenow', v);
+    knob.setAttribute('aria-valuetext', `${v} por cento`);
+  };
+  const setAmount = (v) => { amount = clamp(Math.round(v * 10) / 10, 0, 100); render(); };
+  let drag = null;
+  knob.addEventListener('pointerdown', (e) => {
+    drag = e.clientY;
+    knob.focus();
+    knob.setPointerCapture(e.pointerId);
+    e.preventDefault();
+  });
+  knob.addEventListener('pointermove', (e) => {
+    if (drag === null) return;
+    setAmount(amount + (drag - e.clientY) * (e.shiftKey ? 0.1 : 0.5)); // Shift: ajuste fino
+    drag = e.clientY;
+  });
+  const endDrag = () => { drag = null; };
+  knob.addEventListener('pointerup', endDrag);
+  knob.addEventListener('pointercancel', endDrag);
+  knob.addEventListener('dblclick', () => setAmount(50));
+  knob.addEventListener('keydown', (e) => {
+    const step = e.shiftKey ? 1 : 5;
+    const keys = { ArrowUp: step, ArrowRight: step, ArrowDown: -step, ArrowLeft: -step };
+    if (e.key in keys) setAmount(amount + keys[e.key]);
+    else if (e.key === 'Home') setAmount(0);
+    else if (e.key === 'End') setAmount(100);
+    else return;
+    e.preventDefault();
+  });
+  render();
+
+  /* Gênero: alvo de LUFS na escala do short-term (−20..0 LUFS, da esquerda para a direita).
+     Fonte: EDM −8,5; Pop −9,5; os demais −9,0. */
+  const GENRES = [['Trap', -9], ['Rap/Boom bap', -9], ['Lo-fi', -9], ['Funk BR', -9], ['House', -9], ['EDM', -8.5], ['Pop', -9.5], ['Rock', -9]];
+  const xOf = (v) => (v + 20) / 20 * 100;
+  const tlabel = $('#tlabel'), tline = $('#tline'), tband = $('#tband');
+  let target = -9; // alvo do gênero atual, usado pela pílula de estado
+  const renderGenre = (i) => {
+    const [name, t] = GENRES[i];
+    target = t;
+    tlabel.innerHTML = `alvo <span class="n">${fmt(t)}</span> · ${name}`;
+    tlabel.style.left = tline.style.left = xOf(t).toFixed(2) + '%';
+    tband.style.left = xOf(t - 1).toFixed(2) + '%'; // faixa de ±1 LU
+  };
+  renderGenre(Math.max(0, $$('.chips[aria-label="Gênero"] .chip').findIndex((c) => c.getAttribute('aria-pressed') === 'true')));
+
+  /* Resumo do preset: "Pop · Clean" */
+  const presetSum = $('#presetSum');
+  const pick = (label) => {
+    const b = $(`.chips[aria-label="${label}"] .chip[aria-pressed="true"]`);
+    return b ? b.textContent.trim() : '';
+  };
+  const updatePreset = () => { presetSum.textContent = `${pick('Gênero')} · ${pick('Caráter')}`; };
+  updatePreset();
+
+  /* Seletores: gênero, caráter, assistente e A/B */
+  const ASSIST = {
+    off: 'Desligado · ajuste manual',
+    analisar: 'Analisando · sem alterar',
+    auto: 'Ajustando · <span class="n">+2,4 dB</span>',
+    congelar: 'Congelado · <span class="n">+2,4 dB</span>',
+  };
+  $$('[role="group"]').forEach((group) => group.addEventListener('click', (e) => {
+    const b = e.target.closest('button');
+    if (!b || !group.contains(b)) return;
+    const buttons = $$('button', group);
+    buttons.forEach((x) => x.setAttribute('aria-pressed', String(x === b)));
+    if (group.id === 'assistSeg') {
+      $('#assistStatus').innerHTML = ASSIST[b.dataset.v];
+      $('#status').dataset.v = b.dataset.v;
+    }
+    if (group.getAttribute('aria-label') === 'Gênero') renderGenre(buttons.indexOf(b));
+    if (group.getAttribute('aria-label') === 'Gênero' || group.getAttribute('aria-label') === 'Caráter') updatePreset();
+    if (group.getAttribute('aria-label') === 'Gênero') renderPill();
+  }));
+
+  /* Avançado: abre e fecha; o knob diminui para caber o painel */
+  const advBtn = $('#advBtn'), adv = $('#adv');
+  advBtn.addEventListener('click', () => {
+    const open = !win.classList.contains('adv-open');
+    win.classList.toggle('adv-open', open);
+    advBtn.setAttribute('aria-expanded', String(open));
+    adv.inert = !open;
+  });
+  $('#manual').addEventListener('click', (e) => {
+    const on = e.currentTarget.getAttribute('aria-pressed') !== 'true';
+    e.currentTarget.setAttribute('aria-pressed', String(on));
+    $('#manualState').textContent = on ? 'ligado' : 'desligado';
+  });
+
+  /* Medidores: passeio aleatório suave em volta dos valores de exemplo, ~30 fps.
+     Passo máximo por quadro: 0,15 no short-term e 0,03 nos outros. */
+  const M = {
+    short: { v: -9.0, base: -9.0, max: 0.15, lo: -11.5, hi: -7.0 },
+    int:   { v: -9.6, base: -9.6, max: 0.03, lo: -9.9, hi: -9.3 },
+    tp:    { v: -1.2, base: -1.2, max: 0.03, lo: -1.5, hi: -1.05 }, // nunca passa de -1,0 dBTP
+    gr:    { v: 1.6,  base: 1.6,  max: 0.03, lo: 0.8, hi: 2.6 },
+  };
+  const step = (m) => {
+    const d = (Math.random() * 2 - 1) * m.max * 0.8 + (m.base - m.v) * 0.1;
+    m.v = clamp(m.v + clamp(d, -m.max, m.max), m.lo, m.hi);
+  };
+
+  /* Pílula de estado: no alvo se o integrado está a até ±1 LU do alvo do gênero */
+  const pill = $('#pill');
+  const PILL = { ok: '✓ no alvo', low: '↑ abaixo do alvo', high: '↓ acima do alvo' };
+  let pillS = '';
+  const renderPill = () => {
+    const d = Math.round((M.int.v - target) * 10) / 10;
+    const s = Math.abs(d) <= 1 ? 'ok' : d < 0 ? 'low' : 'high';
+    if (s === pillS) return;
+    pillS = s;
+    pill.dataset.s = s;
+    pill.textContent = PILL[s];
+  };
+
+  const el = {
+    short: $('#shortVal'), shortFill: $('#shortFill'),
+    lufs: $('#lufsVal'), tp: $('#tpVal'), tpFill: $('#tpFill'),
+    gr: $('#grVal'), grFill: $('#grFill'),
+  };
+  const drawMeters = () => {
+    el.short.textContent = fmt(M.short.v);
+    el.shortFill.style.width = ((M.short.v + 20) / 20 * 100).toFixed(2) + '%';
+    el.lufs.textContent = fmt(M.int.v);
+    el.tp.textContent = fmt(M.tp.v) + ' dBTP';
+    el.tpFill.style.width = ((M.tp.v + 6) / 6 * 100).toFixed(2) + '%';
+    el.gr.textContent = fmt(-M.gr.v) + ' dB';
+    el.grFill.style.width = (M.gr.v / 12 * 100).toFixed(2) + '%';
+    renderPill();
+  };
+  const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  let last = 0;
+  const loop = (t) => {
+    if (t - last >= 33) {
+      last = t;
+      if (!reduce) Object.values(M).forEach(step);
+      drawMeters();
+    }
+    if (!reduce) requestAnimationFrame(loop);
+  };
+  drawMeters();
+  if (!reduce) requestAnimationFrame(loop);
+})();
+</script>
+</body>
+</html>
