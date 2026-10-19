@@ -51,11 +51,11 @@
   .idea { color: var(--muted); margin: 0; font-size: 14px; }
   .round { max-width: 1240px; margin: 0 auto 48px; }
   .round-title { font-size: 18px; font-weight: 600; color: var(--muted); margin: 0 0 16px; }
-  /* Contêiner no tamanho escalado (900x600 * 0.6 = 540x360). */
+  /* Contêiner no tamanho escalado: 900 x --h (data-h, 600 por padrão) * --s (0,6 em 540 px). */
   .frame {
     width: 540px;
     max-width: 100%;
-    height: 360px;
+    height: calc(var(--h, 600) * var(--s, 0.6) * 1px);
     overflow: hidden;
     position: relative;
     border-radius: 6px;
@@ -66,7 +66,7 @@
     top: 0;
     left: 0;
     width: 900px;
-    height: 600px;
+    height: calc(var(--h, 600) * 1px);
     border: 0;
     transform: scale(var(--s, 0.6)); /* definido por script abaixo, de acordo com a largura do quadro */
     transform-origin: 0 0;
@@ -85,7 +85,7 @@
   @media (max-width: 600px) {
     body { padding: 24px 16px 40px; }
     .card { padding: 14px; }
-    .frame { width: 100%; height: auto; aspect-ratio: 900 / 600; }
+    .frame { width: 100%; height: auto; aspect-ratio: 900 / var(--h, 600); }
   }
 </style>
 </head>
@@ -102,7 +102,7 @@
     <article class="card">
       <div class="head"><span class="num">09</span><h2 class="name">Marfim final</h2></div>
       <p class="idea">A v6 Marfim refinada: fonte nova, preset e loudness em destaque.</p>
-      <div class="frame"><iframe src="v9-marfim-final.html" title="Marfim final" loading="lazy"></iframe></div>
+      <div class="frame" data-h="680"><iframe src="v9-marfim-final.html" title="Marfim final" loading="lazy"></iframe></div>
       <a class="link" href="v9-marfim-final.html">abrir em tamanho real ↗</a>
     </article>
     </div>
@@ -176,7 +176,11 @@
   </main>
 <script>
   // Escala cada prévia (iframe de 900 px) para caber na largura do quadro
-  const fitFrames = () => document.querySelectorAll('.frame').forEach((f) => f.style.setProperty('--s', (f.clientWidth / 900).toFixed(4)));
+  // data-h: altura real da página em px (600 por padrão); a prévia usa 900 x data-h
+  const fitFrames = () => document.querySelectorAll('.frame').forEach((f) => {
+    f.style.setProperty('--s', (f.clientWidth / 900).toFixed(4));
+    f.style.setProperty('--h', f.dataset.h || 600);
+  });
   window.addEventListener('resize', fitFrames);
   fitFrames();
 </script>

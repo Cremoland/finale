@@ -72,7 +72,7 @@
 
   /* Janela do plugin: 820 x 500. A altura do knob é calculada para caber a coluna esquerda (ver README no relatório). */
   .win {
-    --knob: 180px;
+    --knob: 200px;
     position: relative;
     width: 820px;
     height: 500px;
@@ -83,7 +83,7 @@
     border-radius: 12px;
     box-shadow: 0 24px 48px rgba(0, 0, 0, 0.45);
   }
-  .win.adv-open { --knob: 116px; }
+  .win.adv-open { --knob: 142px; }
 
   .kicker {
     font: 600 11px/16px var(--font-ui);
@@ -166,7 +166,7 @@
     min-height: 0;
     display: flex;
     flex-direction: column;
-    gap: 10px;
+    gap: 6px;
   }
   .knob-area { flex: 1 1 auto; min-height: 0; display: flex; align-items: center; justify-content: center; }
 
@@ -213,14 +213,13 @@
   .cap { margin-top: 6px; font: 700 10px/12px var(--font-ui); letter-spacing: 0.16em; color: var(--text-dim); }
 
   /* Box de preset: mesmo raio, borda e sombra do box de loudness.
-     Altura fixa: 24 (padding) + 18 (cabeçalho) + 8 + 52 (gênero) + 8 + 52 (caráter) = 162 px */
+     Altura automática, 142 px: 20 (padding) + 18 (cabeçalho) + 6 + 46 (gênero) + 6 + 46 (caráter) */
   .preset {
     flex: none;
-    height: 162px;
     display: flex;
     flex-direction: column;
-    gap: 8px;
-    padding: 12px 16px;
+    gap: 6px;
+    padding: 10px 16px;
     background: var(--surface);
     border: 1px solid var(--surface-2);
     border-radius: 12px;
@@ -228,26 +227,33 @@
   }
   .preset-h { height: 18px; display: flex; align-items: center; justify-content: space-between; }
   .preset-sum { font: 700 13px/18px var(--font-ui); color: var(--text); white-space: nowrap; }
-  .group { display: flex; flex-direction: column; gap: 6px; }
+  .group { display: flex; flex-direction: column; gap: 4px; }
   .grp-lbl { font: 700 11px/14px var(--font-ui); letter-spacing: 0.12em; text-transform: uppercase; color: var(--text); }
-  .chips { display: flex; flex-wrap: wrap; gap: 4px; }
+  .chips { display: flex; flex-wrap: nowrap; gap: 4px; }
   .chip {
     flex: 1 1 auto;
-    height: 32px;
-    padding: 0 6px;
-    display: inline-flex;
+    min-width: 0;
+    height: 28px;
+    padding: 0;
+    display: inline-grid;
+    grid-template-columns: 10px 1fr 10px;
+    column-gap: 0;
     align-items: center;
-    justify-content: center;
-    gap: 4px;
     border: 1px solid var(--surface-2);
-    border-radius: 16px;
+    border-radius: 14px;
     background: var(--bg);
     color: var(--text);
-    font: 500 12px/16px var(--font-ui);
+    font: 500 11px/16px var(--font-ui);
     white-space: nowrap;
     cursor: pointer;
     transition: background-color 0.15s ease, color 0.15s ease, border-color 0.15s ease, box-shadow 0.15s ease;
   }
+  /* Coluna 1 é o slot do ✓ (sempre reservado; invisível sem seleção). Coluna 3 é o espelho vazio,
+     para o rótulo (coluna 2, 1fr) ficar centralizado opticamente em todos os chips.
+     O rótulo em negrito (::after, invisível) reserva a largura para a seleção não mudar o chip. */
+  .chip > span { grid-column: 2; grid-row: 1; justify-self: center; }
+  .chip::before { content: "✓"; grid-column: 1; grid-row: 1; justify-self: center; font-size: 10px; font-weight: 700; visibility: hidden; }
+  .chip::after { content: attr(data-label); grid-column: 2; grid-row: 1; justify-self: center; font-weight: 700; visibility: hidden; height: 0; overflow: hidden; }
   .chip:hover { border-color: var(--line); }
   .chip[aria-pressed="true"] {
     background: var(--accent);
@@ -256,7 +262,7 @@
     font-weight: 700;
     box-shadow: 0 2px 8px rgba(31, 122, 114, 0.35);
   }
-  .chip[aria-pressed="true"]::before { content: "✓"; font-size: 11px; font-weight: 700; }
+  .chip[aria-pressed="true"]::before { visibility: visible; }
 
   /* Medidores (cartão branco com faixa de acento no topo) */
   .meter {
@@ -273,11 +279,12 @@
     border-radius: 12px;
     box-shadow: 0 10px 28px rgba(28, 27, 25, 0.10), 0 2px 6px rgba(28, 27, 25, 0.06);
   }
+  /* Faixa de acento: cobre a borda de 1 px e segue o raio externo (12 px), sem fio aparecendo acima */
   .meter::before {
     content: "";
     position: absolute;
-    left: 0; right: 0; top: 0;
-    height: 4px;
+    left: -1px; right: -1px; top: -1px;
+    height: 5px;
     background: var(--accent);
     border-radius: 12px 12px 0 0;
   }
@@ -316,7 +323,15 @@
   .bar.thin { height: 6px; border-radius: 3px; }
   .fill { position: absolute; left: 0; top: 0; bottom: 0; width: 0; border-radius: inherit; background: var(--accent); }
   .fill.gr { background: var(--warn); }
-  .band { position: absolute; top: 0; bottom: 0; width: 10%; background: rgba(31, 122, 114, 0.22); }
+  /* Faixa de ±1 LU: desenhada por cima do preenchimento (vem depois do fill no DOM) */
+  .band {
+    position: absolute;
+    top: 0; bottom: 0;
+    width: 10%;
+    background: rgba(28, 27, 25, 0.14);
+    border-left: 1px solid rgba(28, 27, 25, 0.45);
+    border-right: 1px solid rgba(28, 27, 25, 0.45);
+  }
   .tline { position: absolute; top: -4px; bottom: -4px; width: 2px; margin-left: -1px; border-radius: 1px; background: var(--text); }
   .ceil { position: absolute; top: -4px; bottom: -4px; left: 83.33%; width: 2px; margin-left: -1px; border-radius: 1px; background: var(--text); }
   .scale {
@@ -447,24 +462,24 @@
         <div class="group">
           <span class="grp-lbl">Gênero</span>
           <div class="chips" role="group" aria-label="Gênero">
-            <button type="button" class="chip" aria-pressed="false">Trap</button>
-            <button type="button" class="chip" aria-pressed="false">Rap/Boom bap</button>
-            <button type="button" class="chip" aria-pressed="false">Lo-fi</button>
-            <button type="button" class="chip" aria-pressed="false">Funk BR</button>
-            <button type="button" class="chip" aria-pressed="false">House</button>
-            <button type="button" class="chip" aria-pressed="false">EDM</button>
-            <button type="button" class="chip" aria-pressed="true">Pop</button>
-            <button type="button" class="chip" aria-pressed="false">Rock</button>
+            <button type="button" class="chip" data-label="Trap" aria-pressed="false"><span>Trap</span></button>
+            <button type="button" class="chip" data-label="Rap/Boom bap" aria-pressed="false"><span>Rap/Boom bap</span></button>
+            <button type="button" class="chip" data-label="Lo-fi" aria-pressed="false"><span>Lo-fi</span></button>
+            <button type="button" class="chip" data-label="Funk BR" aria-pressed="false"><span>Funk BR</span></button>
+            <button type="button" class="chip" data-label="House" aria-pressed="false"><span>House</span></button>
+            <button type="button" class="chip" data-label="EDM" aria-pressed="false"><span>EDM</span></button>
+            <button type="button" class="chip" data-label="Pop" aria-pressed="true"><span>Pop</span></button>
+            <button type="button" class="chip" data-label="Rock" aria-pressed="false"><span>Rock</span></button>
           </div>
         </div>
         <div class="group">
           <span class="grp-lbl">Caráter</span>
           <div class="chips" role="group" aria-label="Caráter">
-            <button type="button" class="chip" aria-pressed="true">Clean</button>
-            <button type="button" class="chip" aria-pressed="false">Warm</button>
-            <button type="button" class="chip" aria-pressed="false">Punch</button>
-            <button type="button" class="chip" aria-pressed="false">Wide</button>
-            <button type="button" class="chip" aria-pressed="false">DOOM</button>
+            <button type="button" class="chip" data-label="Clean" aria-pressed="true"><span>Clean</span></button>
+            <button type="button" class="chip" data-label="Warm" aria-pressed="false"><span>Warm</span></button>
+            <button type="button" class="chip" data-label="Punch" aria-pressed="false"><span>Punch</span></button>
+            <button type="button" class="chip" data-label="Wide" aria-pressed="false"><span>Wide</span></button>
+            <button type="button" class="chip" data-label="DOOM" aria-pressed="false"><span>DOOM</span></button>
           </div>
         </div>
       </div>
@@ -483,8 +498,8 @@
         <div class="st">
           <span class="tlabel" id="tlabel">alvo <span class="n">−9,5</span> · Pop</span>
           <div class="bar">
-            <div class="band" id="tband"></div>
             <div class="fill" id="shortFill" style="width:55%"></div>
+            <div class="band" id="tband"></div>
             <div class="tline" id="tline"></div>
           </div>
           <div class="scale"><span>−20</span><span>0</span></div>
@@ -624,8 +639,12 @@
     const [name, t] = GENRES[i];
     target = t;
     tlabel.innerHTML = `alvo <span class="n">${fmt(t)}</span> · ${name}`;
-    tlabel.style.left = tline.style.left = xOf(t).toFixed(2) + '%';
+    tline.style.left = xOf(t).toFixed(2) + '%';
     tband.style.left = xOf(t - 1).toFixed(2) + '%'; // faixa de ±1 LU
+    // Rótulo centralizado no alvo, mas preso às bordas do box: nunca passa da caixa do medidor
+    const W = tlabel.parentElement.clientWidth, w = tlabel.offsetWidth;
+    const cx = xOf(t) / 100 * W;
+    tlabel.style.left = Math.min(W - w / 2, Math.max(w / 2, cx)).toFixed(1) + 'px';
   };
   renderGenre(Math.max(0, $$('.chips[aria-label="Gênero"] .chip').findIndex((c) => c.getAttribute('aria-pressed') === 'true')));
 
@@ -633,7 +652,7 @@
   const presetSum = $('#presetSum');
   const pick = (label) => {
     const b = $(`.chips[aria-label="${label}"] .chip[aria-pressed="true"]`);
-    return b ? b.textContent.trim() : '';
+    return b ? b.dataset.label : '';
   };
   const updatePreset = () => { presetSum.textContent = `${pick('Gênero')} · ${pick('Caráter')}`; };
   updatePreset();
@@ -692,7 +711,10 @@
   let pillS = '';
   const renderPill = () => {
     const d = Math.round((M.int.v - target) * 10) / 10;
-    const s = Math.abs(d) <= 1 ? 'ok' : d < 0 ? 'low' : 'high';
+    const a = Math.abs(d);
+    // Histerese: entra em "no alvo" dentro de ±0,8 LU e só sai além de ±1,2 LU (sem piscar na borda)
+    const inside = pillS === 'ok' ? a <= 1.2 : a <= 0.8;
+    const s = inside ? 'ok' : d < 0 ? 'low' : 'high';
     if (s === pillS) return;
     pillS = s;
     pill.dataset.s = s;
