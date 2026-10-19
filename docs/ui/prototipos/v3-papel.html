@@ -156,7 +156,7 @@
     padding-top: 16px;
     border-top: 1px solid var(--rule);
   }
-  .knob-col { display: flex; flex-direction: column; gap: 8px; }
+  .knob-col { display: flex; flex-direction: column; gap: 8px; user-select: none; -webkit-user-select: none; }
   .knob-wrap { position: relative; width: 176px; height: 176px; }
   #knob {
     display: block;
@@ -270,6 +270,7 @@
     font: 400 11px/14px var(--font-mono);
     color: var(--text-dim);
   }
+  .ruler span.unit-tag:last-child { left: 100%; transform: translateX(8px); color: var(--text); font-weight: 500; }
   .ruler span:first-child { transform: none; }
   .ruler span:last-child { transform: translateX(-100%); }
 
@@ -455,7 +456,8 @@
           <span style="left:40%">−12</span>
           <span style="left:60%">−8</span>
           <span style="left:80%">−4</span>
-          <span style="left:100%">0</span>
+          <span style="left:100%;transform:translateX(-100%)">0</span>
+          <span class="unit-tag">LUFS</span>
         </div>
       </div>
       <div class="integrated">
@@ -598,10 +600,10 @@
 
   /* Medidores: passeio aleatório suave em volta dos valores de exemplo, ~30 fps */
   const M = {
-    int: { v: -9.6, base: -9.6, step: 0.12, lo: -10.1, hi: -9.1 },
-    st:  { v: -8.4, base: -8.4, step: 0.5,  lo: -9.6, hi: -7.2 },
-    tp:  { v: -1.2, base: -1.2, step: 0.12, lo: -1.6, hi: -1.05 },
-    gr:  { v: 0.6,  base: 0.6,  step: 0.1,  lo: 0.2,  hi: 1.2 }
+    int: { v: -9.6, base: -9.6, step: 0.03, lo: -10.1, hi: -9.1 },
+    st:  { v: -8.4, base: -8.4, step: 0.08, lo: -9.6,  hi: -7.2 },
+    tp:  { v: -1.2, base: -1.2, step: 0.03, lo: -1.6,  hi: -1.05 },
+    gr:  { v: 0.6,  base: 0.6,  step: 0.03, lo: 0.2,   hi: 1.2 }
   };
   const fmt = (v) => (v < 0 ? '−' : '') + Math.abs(v).toFixed(1).replace('.', ',');
   const walk = (m) => {

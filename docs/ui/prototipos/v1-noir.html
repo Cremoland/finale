@@ -469,7 +469,7 @@ button { font-family: var(--sans); }
   font-weight: 500;
   cursor: pointer;
 }
-.caret { display: inline-block; font-size: 10px; color: var(--text-dim); transition: transform 0.2s ease; }
+.caret { display: inline-block; font-size: 12px; color: var(--text); transition: transform 0.2s ease; }
 .stage.adv-open .caret { transform: rotate(90deg); }
 .hint { font-size: 11px; color: var(--text-dim); }
 </style>
@@ -515,7 +515,7 @@ button { font-family: var(--sans); }
             <path id="glowArc" class="glow-arc" d=""/>
             <path id="valArc" class="val-arc" d=""/>
             <circle cx="130" cy="130" r="82" fill="url(#kbody)" class="body"/>
-            <g id="ptr"><line x1="130" y1="74" x2="130" y2="56" class="ptr"/></g>
+            <g id="ptr"><line x1="130" y1="74" x2="130" y2="50" class="ptr"/></g>
           </svg>
           <div class="readout">
             <div class="num"><span id="readout">62</span><span class="pct">%</span></div>
@@ -643,6 +643,7 @@ button { font-family: var(--sans); }
   let drag = null;
   knob.addEventListener('pointerdown', (e) => {
     drag = { y: e.clientY };
+    knob.focus();
     knob.setPointerCapture(e.pointerId);
     e.preventDefault();
   });
@@ -698,10 +699,10 @@ button { font-family: var(--sans); }
     gr: $('#grVal'), grFill: $('#grFill'),
   };
   const meters = () => {
-    m.short = walk(m.short, -9.0, 0.6, 0.08, -11.5, -7.0);
-    m.lufs = walk(m.lufs, -9.6, 0.04, 0.1, -9.9, -9.3);
-    m.tp = walk(m.tp, -1.2, 0.06, 0.1, -1.5, -1.05); // nunca passa do teto de -1,0 dBTP
-    m.gr = walk(m.gr, 1.6, 0.15, 0.1, 0.8, 2.6);
+    m.short = walk(m.short, -9.0, 0.2, 0.02, -11.5, -7.0);
+    m.lufs = walk(m.lufs, -9.6, 0.02, 0.05, -9.9, -9.3);
+    m.tp = walk(m.tp, -1.2, 0.03, 0.05, -1.5, -1.05); // nunca passa do teto de -1,0 dBTP
+    m.gr = walk(m.gr, 1.6, 0.05, 0.05, 0.8, 2.6);
     el.shortVal.textContent = fmt(m.short);
     el.shortFill.style.height = ((m.short + 24) / 24 * 100).toFixed(1) + '%'; // escala -24..0 LUFS
     el.lufs.textContent = fmt(m.lufs);

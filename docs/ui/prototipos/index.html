@@ -1,0 +1,137 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Finale · protótipos de interface</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #141414;
+    --card: #1c1c1c;
+    --line: #2a2a2a;
+    --text: #e8e6e1;
+    --muted: #9a978f;
+    --accent: #d9a441;
+  }
+  @media (prefers-color-scheme: light) {
+    :root:not([data-theme="dark"]) { --bg: #141414; }
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; }
+  body {
+    background: #141414;
+    color: var(--text);
+    font-family: "IBM Plex Sans", system-ui, sans-serif;
+    padding: 40px 24px 64px;
+    line-height: 1.5;
+  }
+  header { max-width: 1240px; margin: 0 auto 32px; }
+  h1 { font-size: 26px; font-weight: 600; margin: 0 0 8px; }
+  .intro { color: var(--muted); margin: 0; font-size: 15px; }
+  .grid {
+    max-width: 1240px;
+    margin: 0 auto;
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 24px;
+  }
+  .card {
+    background: var(--card);
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    padding: 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    min-width: 0;
+  }
+  .head { display: flex; align-items: baseline; gap: 12px; }
+  .num { color: var(--accent); font-weight: 600; font-size: 14px; font-variant-numeric: tabular-nums; }
+  .name { font-size: 20px; font-weight: 600; margin: 0; }
+  .idea { color: var(--muted); margin: 0; font-size: 14px; }
+  /* Contêiner no tamanho escalado (900x600 * 0.6 = 540x360). */
+  .frame {
+    width: 540px;
+    max-width: 100%;
+    height: 360px;
+    overflow: hidden;
+    position: relative;
+    border-radius: 6px;
+    background: #000;
+  }
+  .frame iframe {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 900px;
+    height: 600px;
+    border: 0;
+    transform: scale(0.6);
+    transform-origin: 0 0;
+  }
+  .link {
+    color: var(--accent);
+    text-decoration: none;
+    font-size: 14px;
+    font-weight: 500;
+    align-self: flex-start;
+  }
+  .link:hover, .link:focus-visible { text-decoration: underline; }
+  @media (max-width: 1000px) {
+    .grid { grid-template-columns: 1fr; }
+  }
+  @media (max-width: 600px) {
+    body { padding: 24px 16px 40px; }
+    .card { padding: 14px; }
+    .frame { width: 100%; height: auto; aspect-ratio: 900 / 600; }
+    .frame iframe { transform: none; }
+  }
+</style>
+</head>
+<body>
+  <header>
+    <h1>Finale · protótipos de interface</h1>
+    <p class="intro">Cinco direções para escolher. Clique em 'abrir em tamanho real' para interagir.</p>
+  </header>
+
+  <main class="grid">
+    <article class="card">
+      <div class="head"><span class="num">01</span><h2 class="name">Noir</h2></div>
+      <p class="idea">A mais próxima do Soundgoodizer, mas premium. A tela é quase só o knob.</p>
+      <div class="frame"><iframe src="v1-noir.html" title="Noir" loading="lazy"></iframe></div>
+      <a class="link" href="v1-noir.html">abrir em tamanho real ↗</a>
+    </article>
+
+    <article class="card">
+      <div class="head"><span class="num">02</span><h2 class="name">Estúdio</h2></div>
+      <p class="idea">O painel de medição é o herói, no estilo FabFilter Pro-L 2. É para quem quer ver números.</p>
+      <div class="frame"><iframe src="v2-estudio.html" title="Estúdio" loading="lazy"></iframe></div>
+      <a class="link" href="v2-estudio.html">abrir em tamanho real ↗</a>
+    </article>
+
+    <article class="card">
+      <div class="head"><span class="num">03</span><h2 class="name">Papel</h2></div>
+      <p class="idea">Clara, calma e editorial, como uma página de revista de design. É a mais diferente das escuras.</p>
+      <div class="frame"><iframe src="v3-papel.html" title="Papel" loading="lazy"></iframe></div>
+      <a class="link" href="v3-papel.html">abrir em tamanho real ↗</a>
+    </article>
+
+    <article class="card">
+      <div class="head"><span class="num">04</span><h2 class="name">Pulso</h2></div>
+      <p class="idea">O assistente é o centro da história. A tela mostra o que ele está fazendo, para o usuário confiar antes de exportar.</p>
+      <div class="frame"><iframe src="v4-pulso.html" title="Pulso" loading="lazy"></iframe></div>
+      <a class="link" href="v4-pulso.html">abrir em tamanho real ↗</a>
+    </article>
+
+    <article class="card">
+      <div class="head"><span class="num">05</span><h2 class="name">Latão</h2></div>
+      <p class="idea">Um rack analógico desenhado em vetor, quente e tátil, sem textura de foto. Combina com os caracteres Warm e DOOM.</p>
+      <div class="frame"><iframe src="v5-latao.html" title="Latão" loading="lazy"></iframe></div>
+      <a class="link" href="v5-latao.html">abrir em tamanho real ↗</a>
+    </article>
+  </main>
+</body>
+</html>

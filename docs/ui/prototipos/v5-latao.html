@@ -99,7 +99,8 @@ button:focus-visible,[tabindex]:focus-visible{outline:2px solid var(--accent-2);
 .vrow{display:flex;justify-content:space-between;align-items:center;height:22px}
 .vrow .k{font:600 11px/16px var(--sans);letter-spacing:.14em;text-transform:uppercase;color:var(--text-dim)}
 .vrow .v{font:500 14px/16px var(--mono);color:var(--accent-2);white-space:nowrap}
-.vu-lbl{font:500 10px var(--mono);fill:var(--text-dim)}
+.vu-lbl{font:500 10px var(--mono);fill:var(--text-dim);paint-order:stroke;stroke:#120E0C;stroke-width:4px;stroke-linejoin:round}
+#rpointer{pointer-events:none}
 
 /* Coluna central: knob */
 .knob-wrap{position:relative;width:240px;height:240px;margin:8px auto 0;cursor:ns-resize;touch-action:none;border-radius:50%}
@@ -126,7 +127,7 @@ button:focus-visible,[tabindex]:focus-visible{outline:2px solid var(--accent-2);
 .arrow:hover{color:var(--accent-2)}
 .genre-txt{flex:1;text-align:center}
 .genre-txt .cap{font-size:10px;line-height:14px}
-.genre-name{font:700 22px/26px var(--sans);letter-spacing:.06em;text-transform:uppercase;color:var(--accent-2)}
+.genre-name{white-space:nowrap;font:700 22px/26px var(--sans);letter-spacing:.06em;text-transform:uppercase;color:var(--accent-2)}
 
 /* Rodapé e gaveta Avançado */
 .foot{position:absolute;left:0;right:0;bottom:0;height:40px;z-index:3;display:flex;align-items:center;justify-content:center;
@@ -163,8 +164,6 @@ button:focus-visible,[tabindex]:focus-visible{outline:2px solid var(--accent-2);
   </defs>
 </svg>
 
-<p class="caption">Protótipo 5 de 5 · Latão · rack analógico em vetor · janela 820 × 500</p>
-
 <main class="plugin" aria-label="Finale">
   <i class="screw l"></i><i class="screw r"></i>
   <div class="wordmark"><b>FINALE</b><span>um knob</span></div>
@@ -194,10 +193,10 @@ button:focus-visible,[tabindex]:focus-visible{outline:2px solid var(--accent-2);
     <span class="cap">Loudness</span>
     <svg id="dial" class="dial" width="224" height="120" viewBox="0 0 224 120" aria-label="Short-term em VU"></svg>
     <div class="bar-row"><span class="cap">Short-term</span><span class="val" id="stVal">−10,8 LUFS</span></div>
-    <div class="bar" aria-hidden="true"><div class="fill" id="stFill"></div><div class="band"></div><div class="target"></div></div>
+    <div class="bar" aria-hidden="true"><div class="fill" id="stFill"></div><div class="band" id="tgtBand"></div><div class="target" id="tgtLine"></div></div>
     <div class="visor">
       <div class="vrow"><span class="k">Integrado</span><span class="v">−9,6 LUFS</span></div>
-      <div class="vrow"><span class="k">Alvo · Pop</span><span class="v">−9,5 LUFS</span></div>
+      <div class="vrow"><span class="k" id="tgtLbl">Alvo · Pop</span><span class="v" id="tgtVal">−9,5 LUFS</span></div>
       <div class="vrow"><span class="k">True peak</span><span class="v" id="tpVal">−1,2 dBTP</span></div>
       <div class="vrow"><span class="k">Teto</span><span class="v">−1,0 dBTP</span></div>
       <div class="vrow"><span class="k">Redução limiter</span><span class="v" id="grVal">−0,4 dB</span></div>
@@ -228,7 +227,7 @@ button:focus-visible,[tabindex]:focus-visible{outline:2px solid var(--accent-2);
       <svg width="224" height="180" viewBox="0 0 224 180" aria-hidden="true">
         <circle cx="112" cy="96" r="54" fill="#000" opacity=".45"/>
         <g id="notches"></g>
-        <circle cx="112" cy="96" r="38" fill="url(#gBrass)"/>
+        <circle id="rknob" cx="112" cy="96" r="38" fill="url(#gBrass)"/>
         <g id="rpointer"><rect x="109" y="62" width="6" height="18" rx="3" fill="#2A1B0A"/></g>
       </svg>
     </div>
@@ -269,6 +268,8 @@ button:focus-visible,[tabindex]:focus-visible{outline:2px solid var(--accent-2);
     <button class="adv" id="advBtn" aria-expanded="false" aria-controls="drawer"><span id="advTxt">Avançado</span><span id="advChev" aria-hidden="true">▲</span></button>
   </div>
 </main>
+
+<p class="caption">Protótipo 5 de 5 · Latão · rack analógico em vetor · janela 820 × 500</p>
 
 <script>
 (() => {
@@ -366,12 +367,21 @@ button:focus-visible,[tabindex]:focus-visible{outline:2px solid var(--accent-2);
     document.querySelectorAll('.pos').forEach((b, k) => b.setAttribute('aria-checked', k === i));
     $('#rpointer').setAttribute('transform', `rotate(${-120 + 60 * i} 112 96)`);
   };
-  $('#rotary svg').addEventListener('click', () => setCarater((st.carater + 1) % 5));
+  $('#rknob').addEventListener('click', () => setCarater((st.carater + 1) % 5));
 
   // Gênero
+  // Alvo de LUFS por gênero (ordem de GENRES)
+  const TARGETS = [-9, -9, -9, -9, -9, -8.5, -9.5, -9];
   const renderGenre = () => {
-    $('#gName').textContent = GENRES[st.genre];
+    const name = GENRES[st.genre], t = TARGETS[st.genre];
+    $('#gName').textContent = name;
+    $('#gName').style.fontSize = name.length > 9 ? '18px' : '22px';
     $('#gIdx').textContent = `${st.genre + 1} / 8`;
+    $('#tgtLbl').textContent = 'Alvo · ' + name;
+    $('#tgtVal').textContent = (t % 1 ? num(t, 1) : num(t, 0)) + ' LUFS';
+    $('#tgtLine').style.left = ((t + 20) / 20 * 100).toFixed(2) + '%';
+    $('#tgtBand').style.left = ((t - 1 + 20) / 20 * 100).toFixed(2) + '%';
+    $('#vuBand').setAttribute('d', arc(112, 108, 96, dv(t - 1), dv(t + 1)));
   };
   $('#gPrev').onclick = () => { st.genre = (st.genre + 7) % 8; renderGenre(); };
   $('#gNext').onclick = () => { st.genre = (st.genre + 1) % 8; renderGenre(); };
@@ -405,7 +415,7 @@ button:focus-visible,[tabindex]:focus-visible{outline:2px solid var(--accent-2);
   const dv = (v) => -90 + 180 * (v + 20) / 20;
   el('rect', { x: 0, y: 0, width: 224, height: 120, rx: 8, fill: '#120E0C' }, dial);
   el('path', { d: arc(112, 108, 96, -90, 90), fill: 'none', stroke: '#5C4C3A', 'stroke-width': 1.5 }, dial);
-  el('path', { d: arc(112, 108, 96, dv(-10.5), dv(-8.5)), fill: 'none', stroke: '#C9994A', 'stroke-width': 6 }, dial);
+  el('path', { id: 'vuBand', d: arc(112, 108, 96, dv(-10.5), dv(-8.5)), fill: 'none', stroke: '#C9994A', 'stroke-width': 6 }, dial);
   for (let v = -20; v <= 0; v += 1) {
     const major = v % 5 === 0, a = dv(v);
     const [x1, y1] = pt(112, 108, major ? 80 : 86, a), [x2, y2] = pt(112, 108, 90, a);

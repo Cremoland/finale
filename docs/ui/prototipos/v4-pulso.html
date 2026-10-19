@@ -187,12 +187,12 @@ body {
 .u { font: 500 11px var(--font-num); color: var(--text-dim); }
 .tgt-lbl { margin-left: auto; font: 500 11px var(--font-num); color: var(--accent-2); }
 .loud { width: 288px; display: flex; flex-direction: column; gap: 6px; }
-.tp { width: 164px; display: flex; flex-direction: column; gap: 6px; }
+.tp { width: 164px; display: flex; flex-direction: column; gap: 6px; margin-left: 16px; }
 .scale { position: relative; height: 8px; background: var(--surface-2); border-radius: 4px; }
 .st { position: absolute; left: 0; top: 0; bottom: 0; width: 0; background: var(--accent); border-radius: 4px; }
 .int, .tgt, .ceil { position: absolute; top: -4px; bottom: -4px; width: 0; }
 .int { width: 3px; margin-left: -1px; background: var(--text); border-radius: 2px; }
-.tgt { border-left: 2px dashed var(--accent-2); }
+.tgt { top: -2px; bottom: -2px; background: rgba(255, 177, 153, .35); border-radius: 2px; }
 .ceil { width: 2px; margin-left: -1px; background: var(--text); border-radius: 1px; }
 .sub { height: 14px; display: flex; justify-content: space-between; white-space: nowrap; font: 500 11px/14px var(--font-num); color: var(--text-dim); }
 .ok { color: var(--ok); }
@@ -200,7 +200,7 @@ body {
 .ctl-row { display: flex; align-items: center; gap: 8px; }
 .seg { display: flex; gap: 2px; height: 30px; padding: 2px; background: var(--surface); border: 1px solid var(--edge); border-radius: 10px; }
 .seg button { height: 24px; padding: 0 8px; border: 0; border-radius: 7px; background: transparent; color: var(--text-dim); font: 600 12px var(--font-ui); white-space: nowrap; cursor: pointer; }
-.seg button[aria-pressed="true"] { background: var(--accent); color: var(--bg); }
+.seg button[aria-pressed="true"] { background: var(--accent); color: var(--bg); font-weight: 700; text-decoration: underline; text-underline-offset: 4px; }
 .btn {
   height: 30px; padding: 0 8px 0 10px; display: flex; align-items: center; gap: 6px; cursor: pointer;
   background: var(--surface); border: 1px solid var(--edge); border-radius: 10px;
@@ -347,8 +347,8 @@ button:focus-visible { outline: 2px solid var(--accent-2); outline-offset: 2px; 
         <span class="tgt-lbl" id="tgtLbl">alvo −9,5 · Pop</span>
       </div>
       <div class="scale">
-        <div class="st" id="stBar"></div>
         <div class="tgt" id="tgtMark"></div>
+        <div class="st" id="stBar"></div>
         <div class="int" id="intMark"></div>
       </div>
       <div class="sub"><span id="stTxt">curto prazo −10,1 LUFS</span></div>
@@ -398,7 +398,7 @@ button:focus-visible { outline: 2px solid var(--accent-2); outline-offset: 2px; 
   const hms = s => `${String(Math.floor(s / 60)).padStart(2, '0')}:${String(s % 60).padStart(2, '0')}`;
 
   // Valores de exemplo. Alvos de LUFS por gênero são placeholders para o protótipo.
-  const GENRES = [['Trap', -8.5], ['Rap/Boom bap', -9], ['Lo-fi', -12], ['Funk BR', -9], ['House', -8], ['EDM', -7.5], ['Pop', -9.5], ['Rock', -9]];
+  const GENRES = [['Trap', -9], ['Rap/Boom bap', -9], ['Lo-fi', -9], ['Funk BR', -9], ['House', -9], ['EDM', -8.5], ['Pop', -9.5], ['Rock', -9]];
   const CHARS = ['Clean', 'Warm', 'Punch', 'Wide', 'DOOM'];
   const ORDER = ['off', 'analisar', 'auto', 'congelar'];
   const NEUTRAL = [0.5, 0, 0, -0.5]; // forma neutra por banda (dB)
@@ -465,7 +465,7 @@ button:focus-visible { outline: 2px solid var(--accent-2); outline-offset: 2px; 
       b.setAttribute('aria-checked', on);
       b.tabIndex = on ? 0 : -1;
       b.classList.toggle('done', i < idx);
-      b.classList.toggle('pulse', on && state !== 'off');
+      b.classList.toggle('pulse', on && (state === 'analisar' || state === 'auto'));
     });
     $('#railFill').style.width = (idx / 3 * 100) + '%';
     renderStatus();
@@ -477,7 +477,7 @@ button:focus-visible { outline: 2px solid var(--accent-2); outline-offset: 2px; 
     const n = clamp(ORDER.indexOf(S.assist) + (e.key === 'ArrowRight' ? 1 : -1), 0, 3);
     setAssist(ORDER[n]); steps[n].focus();
   });
-  setInterval(() => { if (S.assist !== 'off') { S.sec++; renderStatus(); } }, 1000);
+  setInterval(() => { if (S.assist === 'analisar' || S.assist === 'auto') { S.sec++; renderStatus(); } }, 1000);
 
   // Gênero
   const genreWrap = $('#genreWrap'), genreBtn = $('#genreBtn'), menu = $('#menu'), items = $$('#menu li');
@@ -491,7 +491,9 @@ button:focus-visible { outline: 2px solid var(--accent-2); outline-offset: 2px; 
     $('#genreName').textContent = name;
     items.forEach((li, i) => li.setAttribute('aria-selected', i === S.genre));
     $('#tgtLbl').textContent = `alvo ${fmt(tgt)} · ${name}`;
-    $('#tgtMark').style.left = lufsX(tgt) + '%';
+    // Faixa translúcida de ±0,5 LU em torno do alvo, atrás da barra
+    $('#tgtMark').style.left = lufsX(tgt - 0.5) + '%';
+    $('#tgtMark').style.width = '12.5%';
   };
   genreBtn.addEventListener('click', () => setMenu(menu.hidden));
   items.forEach(li => li.addEventListener('click', () => { S.genre = +li.dataset.i; setMenu(false); renderGenre(); }));
