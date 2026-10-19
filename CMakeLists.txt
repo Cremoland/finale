@@ -29,6 +29,15 @@ if(FINALE_BUILD_PLUGIN)
         GIT_SHALLOW ON)
     FetchContent_MakeAvailable(JUCE)
 
+    # Fontes da interface (SIL OFL, licenças em Source/Plugin/Fonts/).
+    juce_add_binary_data(finale_fonts SOURCES
+        Source/Plugin/Fonts/Sora-400.ttf
+        Source/Plugin/Fonts/Sora-600.ttf
+        Source/Plugin/Fonts/Sora-700.ttf
+        Source/Plugin/Fonts/Sora-800.ttf
+        Source/Plugin/Fonts/IBMPlexMono-400.ttf
+        Source/Plugin/Fonts/IBMPlexMono-500.ttf)
+
     juce_add_plugin(finale_plugin
         PRODUCT_NAME "${FINALE_PRODUCT_NAME}"
         COMPANY_NAME "${FINALE_COMPANY_NAME}"
@@ -54,6 +63,7 @@ if(FINALE_BUILD_PLUGIN)
     target_link_libraries(finale_plugin
         PRIVATE
             finale_dsp
+            finale_fonts
             juce::juce_audio_utils
             juce::juce_dsp
         PUBLIC

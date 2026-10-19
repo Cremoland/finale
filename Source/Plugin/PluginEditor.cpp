@@ -1,4 +1,5 @@
 #include "Plugin/PluginEditor.h"
+#include "Plugin/Theme.h" // cores, fontes e peças visuais da interface
 
 namespace finale
 {
