@@ -1,0 +1,453 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Finale · Protótipo 5 · Latão</title>
+<!--
+  Direção: "Latão". Rack analógico desenhado em vetor, quente e tátil, para os caracteres Warm e DOOM.
+  Paleta (variáveis em :root): --bg #1B1714, --surface #2A2320, --surface-2 #3A302A,
+  --text #EDE3D1, --text-dim #B3A58E, --accent #D8A657, --accent-2 #F0C987,
+  --ok #9BC26B, --warn #F2A541, --danger #E4572E.
+  Fontes: Barlow Condensed (rótulos em caixa alta) e IBM Plex Mono (visores e números).
+  Só formas vetoriais (arcos, retângulos, gradientes lineares e radiais). Sem backdrop-filter, sem imagens.
+-->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#1B1714; --surface:#2A2320; --surface-2:#3A302A;
+  --text:#EDE3D1; --text-dim:#B3A58E;
+  --accent:#D8A657; --accent-2:#F0C987;
+  --ok:#9BC26B; --warn:#F2A541; --danger:#E4572E;
+  --display:#120E0C;
+  --sans:"Barlow Condensed","Arial Narrow",Arial,sans-serif;
+  --mono:"IBM Plex Mono",Consolas,"Courier New",monospace;
+}
+*{box-sizing:border-box}
+html,body{margin:0;min-height:100%}
+body{background:#1e1e1e;color:var(--text);font-family:var(--sans);min-height:100vh;padding:48px 24px;font-variant-numeric:tabular-nums}
+button{font-family:inherit;color:inherit}
+button:focus-visible,[tabindex]:focus-visible{outline:2px solid var(--accent-2);outline-offset:2px}
+.caption{margin:16px auto 0;width:820px;text-align:center;font-size:12px;color:#9a9a9a;letter-spacing:.04em}
+
+/* Janela do plugin: 820 x 500 fixos */
+.plugin{position:relative;width:820px;height:500px;margin:0 auto;overflow:hidden;border-radius:12px;user-select:none;
+  background:linear-gradient(180deg,#241E1A 0%,var(--bg) 45%,#161211 100%);
+  box-shadow:0 24px 48px rgba(0,0,0,.6),inset 0 0 0 1px #0d0a09}
+.screw{position:absolute;top:12px;width:12px;height:12px;border-radius:50%;
+  background:radial-gradient(circle at 35% 30%,#E6D3A6,#8A7450 60%,#3F3428);
+  box-shadow:0 1px 0 rgba(255,255,255,.12),inset 0 0 0 1px rgba(0,0,0,.4)}
+.screw::after{content:"";position:absolute;left:1px;right:1px;top:5px;height:2px;background:#2a2118;transform:rotate(35deg)}
+.screw.l{left:12px}.screw.r{right:12px}
+
+/* Linhas gravadas que separam as seções */
+.rule-h{position:absolute;left:24px;right:24px;top:104px;height:2px;
+  background:linear-gradient(90deg,transparent,#0c0908 8%,#0c0908 92%,transparent);box-shadow:0 1px 0 rgba(255,235,200,.07)}
+.rule-v{position:absolute;top:120px;height:296px;width:2px;
+  background:linear-gradient(180deg,transparent,#0c0908 8%,#0c0908 92%,transparent);box-shadow:1px 0 0 rgba(255,235,200,.07)}
+.rule-v.a{left:276px}.rule-v.b{left:542px}
+
+.cap{display:block;font-size:11px;line-height:16px;font-weight:600;letter-spacing:.18em;text-transform:uppercase;color:var(--text-dim);text-align:center}
+
+/* Marca */
+.wordmark{position:absolute;left:40px;top:24px}
+.wordmark b{display:block;font-weight:700;font-size:26px;line-height:26px;letter-spacing:.28em;margin-right:-.28em;color:var(--text);text-shadow:0 1px 0 rgba(0,0,0,.6)}
+.wordmark span{display:block;margin-top:4px;font-size:11px;line-height:16px;letter-spacing:.2em;text-transform:uppercase;color:var(--text-dim)}
+
+/* Assistente: 4 teclas com LED */
+.assist{position:absolute;left:216px;top:12px;width:344px}
+.keys{display:flex;gap:8px;margin-top:8px}
+.key{flex:1 1 0;height:32px;display:flex;align-items:center;justify-content:center;gap:6px;padding:0 4px;cursor:pointer;
+  font:600 12px/1 var(--sans);letter-spacing:.08em;text-transform:uppercase;color:var(--text-dim);
+  background:linear-gradient(180deg,#332A25,#241E1A);border:1px solid #100C0A;border-radius:4px;
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.07),0 2px 0 #0d0a08}
+.key .led{width:8px;height:8px;border-radius:50%;flex:none;background:#2A2119;box-shadow:inset 0 0 0 1px #000}
+.key[aria-pressed="true"]{color:var(--text);font-weight:700;background:linear-gradient(180deg,#4B3C2C,#372D21);border-color:var(--accent);
+  box-shadow:inset 0 -2px 0 var(--accent),0 2px 0 #0d0a08}
+.key[aria-pressed="true"] .led{background:radial-gradient(circle at 35% 30%,#FFF1C9,var(--warn) 70%);box-shadow:0 0 0 2px rgba(242,165,65,.3)}
+.status{display:flex;justify-content:center;gap:6px;margin-top:8px;font:500 12px/16px var(--sans);color:var(--ok)}
+.status.idle{color:var(--text-dim)}
+
+/* A/B: chave de alavanca */
+.ab{position:absolute;left:596px;top:12px;width:184px}
+.lever{display:flex;height:32px;margin-top:8px;padding:2px;border-radius:4px;background:var(--display);
+  box-shadow:inset 0 2px 5px #000,inset 0 0 0 1px #000,0 1px 0 rgba(255,255,255,.07)}
+.lever button{flex:1;border:0;border-radius:3px;background:transparent;cursor:pointer;color:var(--text-dim);
+  font:600 12px/1 var(--sans);letter-spacing:.04em;text-transform:uppercase;white-space:nowrap}
+.lever button[aria-pressed="true"]{color:#1B1714;font-weight:700;background:linear-gradient(180deg,#F5D89E,#C9994A);
+  box-shadow:inset 0 1px 0 #FFF3D6,0 2px 3px rgba(0,0,0,.5)}
+.sub{margin-top:8px;text-align:center;font:500 12px/16px var(--sans);color:var(--text-dim)}
+
+/* Colunas do painel */
+.col{position:absolute;top:120px;width:224px}
+.col-l{left:40px}.col-c{left:290px;width:240px;text-align:center}.col-r{left:556px}
+
+/* Coluna esquerda: VU, barra, visor */
+.dial{display:block;margin-top:8px}
+.bar-row{display:flex;justify-content:space-between;align-items:baseline;margin-top:8px}
+.bar-row .cap{text-align:left}
+.bar-row .val{font:500 14px/16px var(--mono);color:var(--accent-2)}
+.bar{position:relative;height:8px;margin-top:8px;border-radius:2px;background:var(--display);
+  box-shadow:inset 0 1px 2px #000,0 1px 0 rgba(255,255,255,.07)}
+.bar .fill{position:absolute;left:0;top:0;bottom:0;width:46%;border-radius:2px;background:linear-gradient(90deg,#8A6A35,var(--accent) 70%,var(--accent-2))}
+.bar .band{position:absolute;top:0;bottom:0;left:47.5%;width:10%;background:rgba(216,166,87,.28);border-left:1px solid rgba(240,201,135,.6);border-right:1px solid rgba(240,201,135,.6)}
+.bar .target{position:absolute;top:-4px;bottom:-4px;left:52.5%;width:2px;background:var(--text)}
+.visor{margin-top:16px;padding:8px 12px;border-radius:4px;background:var(--display);
+  box-shadow:inset 0 2px 6px #000,inset 0 0 0 1px #000,0 1px 0 rgba(255,255,255,.07)}
+.vrow{display:flex;justify-content:space-between;align-items:center;height:22px}
+.vrow .k{font:600 11px/16px var(--sans);letter-spacing:.14em;text-transform:uppercase;color:var(--text-dim)}
+.vrow .v{font:500 14px/16px var(--mono);color:var(--accent-2);white-space:nowrap}
+.vu-lbl{font:500 10px var(--mono);fill:var(--text-dim)}
+
+/* Coluna central: knob */
+.knob-wrap{position:relative;width:240px;height:240px;margin:8px auto 0;cursor:ns-resize;touch-action:none;border-radius:50%}
+.knob-wrap svg{display:block}
+.knob-num{font-family:var(--mono);font-size:40px;font-weight:500;fill:#1B1714}
+.knob-num .pct{font-size:18px}
+.led-dot{fill:#3B2E22;stroke:#0E0A08;stroke-width:.6}
+.led-dot.lit{fill:#FFD98A}
+.halo{fill:#F0C987;opacity:0}
+.halo.lit{opacity:.28}
+.knob-note{margin:8px 0 0;font:500 12px/16px var(--sans);color:var(--text-dim)}
+
+/* Coluna direita: chave rotativa e gênero */
+.rotary{position:relative;width:224px;height:180px;margin:8px auto 0}
+.rotary svg{position:absolute;left:0;top:0}
+.pos{position:absolute;transform:translate(-50%,-50%);display:flex;align-items:center;gap:6px;padding:4px 6px;border:0;background:none;cursor:pointer;
+  color:var(--text-dim);font:600 12px/1 var(--sans);letter-spacing:.1em;text-transform:uppercase;white-space:nowrap}
+.pos i{width:8px;height:8px;border-radius:50%;flex:none;border:1px solid var(--text-dim)}
+.pos[aria-checked="true"]{color:var(--text);font-weight:700}
+.pos[aria-checked="true"] i{background:var(--accent-2);border-color:var(--accent-2);box-shadow:0 0 0 3px rgba(240,201,135,.25)}
+.genre{position:relative;display:flex;align-items:center;height:56px;margin-top:16px;border-radius:4px;background:var(--display);
+  box-shadow:inset 0 2px 6px #000,inset 0 0 0 1px #000,0 1px 0 rgba(255,255,255,.07)}
+.arrow{width:40px;height:56px;border:0;background:none;cursor:pointer;color:var(--text-dim);font:500 16px/1 var(--sans)}
+.arrow:hover{color:var(--accent-2)}
+.genre-txt{flex:1;text-align:center}
+.genre-txt .cap{font-size:10px;line-height:14px}
+.genre-name{font:700 22px/26px var(--sans);letter-spacing:.06em;text-transform:uppercase;color:var(--accent-2)}
+
+/* Rodapé e gaveta Avançado */
+.foot{position:absolute;left:0;right:0;bottom:0;height:40px;z-index:3;display:flex;align-items:center;justify-content:center;
+  background:#140F0D;box-shadow:inset 0 1px 0 #0a0706,inset 0 1px 0 rgba(255,255,255,.04)}
+.adv{display:flex;align-items:center;gap:8px;height:28px;padding:0 16px;border-radius:4px;cursor:pointer;
+  border:1px solid #0a0706;background:linear-gradient(180deg,#332A25,#241E1A);box-shadow:inset 0 1px 0 rgba(255,255,255,.07);
+  font:600 12px/1 var(--sans);letter-spacing:.14em;text-transform:uppercase;color:var(--text-dim)}
+.adv[aria-expanded="true"]{color:var(--text);border-color:var(--accent)}
+.drawer{position:absolute;left:0;right:0;bottom:40px;height:176px;z-index:2;display:flex;flex-direction:column;justify-content:space-between;padding:16px 40px;
+  background:linear-gradient(180deg,#2E2622,#211B17);border-top:2px solid #8A6A35;box-shadow:0 -12px 24px rgba(0,0,0,.5);
+  transform:translateY(100%);transition:transform .32s cubic-bezier(.2,.8,.2,1)}
+.drawer.open{transform:translateY(0)}
+.drawer-h{display:flex;justify-content:space-between;align-items:center}
+.drawer-h .cap{text-align:left}
+.drawer-h .note{font:500 12px/16px var(--sans);color:var(--text-dim)}
+.minis{display:flex;justify-content:space-between}
+.mini{display:flex;align-items:center;gap:12px}
+.mini svg{flex:none}
+.mini .k{font:600 11px/16px var(--sans);letter-spacing:.14em;text-transform:uppercase;color:var(--text-dim)}
+.mini .v{font:500 14px/16px var(--mono);color:var(--accent-2)}
+.chips{display:flex;gap:16px}
+.chip{flex:1;display:flex;justify-content:space-between;align-items:center;height:32px;padding:0 12px;border-radius:4px;background:var(--display);
+  box-shadow:inset 0 1px 3px #000;font:600 12px/1 var(--sans);letter-spacing:.1em;text-transform:uppercase;color:var(--text-dim)}
+.chip b{font:500 13px/1 var(--mono);color:var(--accent-2);letter-spacing:0;text-transform:none}
+</style>
+</head>
+<body>
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <defs>
+    <radialGradient id="gBrass" cx=".36" cy=".3" r=".75" fx=".36" fy=".3">
+      <stop offset="0" stop-color="#F7DDA6"/><stop offset=".4" stop-color="#D8A657"/>
+      <stop offset=".8" stop-color="#8A6230"/><stop offset="1" stop-color="#4F3818"/>
+    </radialGradient>
+  </defs>
+</svg>
+
+<p class="caption">Protótipo 5 de 5 · Latão · rack analógico em vetor · janela 820 × 500</p>
+
+<main class="plugin" aria-label="Finale">
+  <i class="screw l"></i><i class="screw r"></i>
+  <div class="wordmark"><b>FINALE</b><span>um knob</span></div>
+  <div class="rule-h"></div>
+  <div class="rule-v a"></div><div class="rule-v b"></div>
+
+  <section class="assist">
+    <span class="cap">Assistente</span>
+    <div class="keys" role="group" aria-label="Assistente">
+      <button class="key" data-s="off" aria-pressed="false"><span class="led"></span>Off</button>
+      <button class="key" data-s="analisar" aria-pressed="false"><span class="led"></span>Analisar</button>
+      <button class="key" data-s="auto" aria-pressed="true"><span class="led"></span>Auto</button>
+      <button class="key" data-s="congelar" aria-pressed="false"><span class="led"></span>Congelar</button>
+    </div>
+    <div class="status" id="statusRow"><span id="stIco" aria-hidden="true">●</span><span id="status">Ajustando · +2,4 dB</span></div>
+  </section>
+
+  <section class="ab">
+    <span class="cap">Comparar</span>
+    <div class="lever" role="group" aria-label="A/B">
+      <button aria-pressed="true">A · Finale</button><button aria-pressed="false">B · Original</button>
+    </div>
+    <div class="sub">volume igualado</div>
+  </section>
+
+  <section class="col col-l">
+    <span class="cap">Loudness</span>
+    <svg id="dial" class="dial" width="224" height="120" viewBox="0 0 224 120" aria-label="Short-term em VU"></svg>
+    <div class="bar-row"><span class="cap">Short-term</span><span class="val" id="stVal">−10,8 LUFS</span></div>
+    <div class="bar" aria-hidden="true"><div class="fill" id="stFill"></div><div class="band"></div><div class="target"></div></div>
+    <div class="visor">
+      <div class="vrow"><span class="k">Integrado</span><span class="v">−9,6 LUFS</span></div>
+      <div class="vrow"><span class="k">Alvo · Pop</span><span class="v">−9,5 LUFS</span></div>
+      <div class="vrow"><span class="k">True peak</span><span class="v" id="tpVal">−1,2 dBTP</span></div>
+      <div class="vrow"><span class="k">Teto</span><span class="v">−1,0 dBTP</span></div>
+      <div class="vrow"><span class="k">Redução limiter</span><span class="v" id="grVal">−0,4 dB</span></div>
+    </div>
+  </section>
+
+  <section class="col col-c">
+    <span class="cap">Quantidade</span>
+    <div class="knob-wrap" id="knobWrap" role="slider" tabindex="0" aria-label="Quantidade" aria-valuemin="0" aria-valuemax="100" aria-valuenow="62">
+      <svg viewBox="0 0 240 240" width="240" height="240" aria-hidden="true">
+        <g id="ticks"></g>
+        <g id="leds"></g>
+        <path id="arcTrack" fill="none" stroke="#3A302A" stroke-width="4" stroke-linecap="round"/>
+        <path id="arcVal" fill="none" stroke="#D8A657" stroke-width="4" stroke-linecap="round"/>
+        <circle cx="120" cy="124" r="74" fill="#000" opacity=".5"/>
+        <circle cx="120" cy="120" r="74" fill="url(#gBrass)"/>
+        <circle cx="120" cy="120" r="68" fill="none" stroke="#5A4120" stroke-opacity=".4" stroke-width="5" stroke-dasharray="1.2 2.4"/>
+        <g id="pointer"><rect x="117" y="52" width="6" height="26" rx="3" fill="#2A1B0A"/></g>
+        <text class="knob-num" x="120" y="120" text-anchor="middle" dominant-baseline="central"><tspan id="knobNum">62</tspan><tspan class="pct" dx="2">%</tspan></text>
+      </svg>
+    </div>
+    <p class="knob-note">quanto da master entra</p>
+  </section>
+
+  <section class="col col-r">
+    <span class="cap">Caráter</span>
+    <div class="rotary" id="rotary" role="radiogroup" aria-label="Caráter">
+      <svg width="224" height="180" viewBox="0 0 224 180" aria-hidden="true">
+        <circle cx="112" cy="96" r="54" fill="#000" opacity=".45"/>
+        <g id="notches"></g>
+        <circle cx="112" cy="96" r="38" fill="url(#gBrass)"/>
+        <g id="rpointer"><rect x="109" y="62" width="6" height="18" rx="3" fill="#2A1B0A"/></g>
+      </svg>
+    </div>
+    <div class="genre">
+      <button class="arrow" id="gPrev" aria-label="Gênero anterior">◀</button>
+      <div class="genre-txt"><span class="cap">Gênero · <span id="gIdx">7 / 8</span></span><div class="genre-name" id="gName">Pop</div></div>
+      <button class="arrow" id="gNext" aria-label="Próximo gênero">▶</button>
+    </div>
+  </section>
+
+  <div class="drawer" id="drawer" inert>
+    <div class="drawer-h"><span class="cap">Avançado</span><span class="note">ajustes da cadeia · 100 % = padrão</span></div>
+    <div class="minis">
+      <div class="mini">
+        <svg width="40" height="40" viewBox="0 0 40 40" aria-hidden="true"><circle cx="20" cy="20" r="18" fill="none" stroke="#120E0C" stroke-width="3"/><circle cx="20" cy="20" r="18" fill="none" stroke="#D8A657" stroke-width="3"/><circle cx="20" cy="20" r="12" fill="url(#gBrass)"/><rect x="19" y="10" width="2" height="6" rx="1" fill="#2A1B0A" transform="rotate(135 20 20)"/></svg>
+        <div><div class="k">EQ tonal</div><div class="v">100 %</div></div>
+      </div>
+      <div class="mini">
+        <svg width="40" height="40" viewBox="0 0 40 40" aria-hidden="true"><circle cx="20" cy="20" r="18" fill="none" stroke="#120E0C" stroke-width="3"/><circle cx="20" cy="20" r="18" fill="none" stroke="#D8A657" stroke-width="3"/><circle cx="20" cy="20" r="12" fill="url(#gBrass)"/><rect x="19" y="10" width="2" height="6" rx="1" fill="#2A1B0A" transform="rotate(135 20 20)"/></svg>
+        <div><div class="k">Compressão</div><div class="v">100 %</div></div>
+      </div>
+      <div class="mini">
+        <svg width="40" height="40" viewBox="0 0 40 40" aria-hidden="true"><circle cx="20" cy="20" r="18" fill="none" stroke="#120E0C" stroke-width="3"/><circle cx="20" cy="20" r="18" fill="none" stroke="#D8A657" stroke-width="3"/><circle cx="20" cy="20" r="12" fill="url(#gBrass)"/><rect x="19" y="10" width="2" height="6" rx="1" fill="#2A1B0A" transform="rotate(135 20 20)"/></svg>
+        <div><div class="k">Saturação</div><div class="v">100 %</div></div>
+      </div>
+      <div class="mini">
+        <svg width="40" height="40" viewBox="0 0 40 40" aria-hidden="true"><circle cx="20" cy="20" r="18" fill="none" stroke="#120E0C" stroke-width="3"/><circle cx="20" cy="20" r="18" fill="none" stroke="#D8A657" stroke-width="3"/><circle cx="20" cy="20" r="12" fill="url(#gBrass)"/><rect x="19" y="10" width="2" height="6" rx="1" fill="#2A1B0A" transform="rotate(135 20 20)"/></svg>
+        <div><div class="k">Largura</div><div class="v">100 %</div></div>
+      </div>
+    </div>
+    <div class="chips">
+      <div class="chip"><span>Ajuste LUFS</span><b>+0,0 LU</b></div>
+      <div class="chip"><span>Alvo manual: <b>desligado</b></span></div>
+    </div>
+  </div>
+
+  <div class="foot">
+    <button class="adv" id="advBtn" aria-expanded="false" aria-controls="drawer"><span id="advTxt">Avançado</span><span id="advChev" aria-hidden="true">▲</span></button>
+  </div>
+</main>
+
+<script>
+(() => {
+  const SVG = 'http://www.w3.org/2000/svg';
+  const $ = (s) => document.querySelector(s);
+  const clamp = (v, lo, hi) => Math.min(hi, Math.max(lo, v));
+  const el = (tag, attrs, parent) => {
+    const e = document.createElementNS(SVG, tag);
+    for (const k in attrs) e.setAttribute(k, attrs[k]);
+    if (parent) parent.appendChild(e);
+    return e;
+  };
+  // Graus medidos a partir do topo, no sentido horário.
+  const pt = (cx, cy, r, deg) => {
+    const a = deg * Math.PI / 180;
+    return [cx + r * Math.sin(a), cy - r * Math.cos(a)];
+  };
+  const arc = (cx, cy, r, a1, a2) => {
+    if (a2 - a1 < 0.5) return 'M0 0';
+    const [x1, y1] = pt(cx, cy, r, a1), [x2, y2] = pt(cx, cy, r, a2);
+    return `M${x1.toFixed(2)} ${y1.toFixed(2)} A${r} ${r} 0 ${a2 - a1 > 180 ? 1 : 0} 1 ${x2.toFixed(2)} ${y2.toFixed(2)}`;
+  };
+  const num = (v, d) => (v < 0 ? '−' : '') + Math.abs(v).toFixed(d).replace('.', ',');
+
+  const GENRES = ['Trap', 'Rap/Boom bap', 'Lo-fi', 'Funk BR', 'House', 'EDM', 'Pop', 'Rock'];
+  const CHARS = ['Clean', 'Warm', 'Punch', 'Wide', 'DOOM'];
+  const ASSIST = { off: ['Desligado', false], analisar: ['Analisando a faixa', false], auto: ['Ajustando · +2,4 dB', true], congelar: ['Congelado · +2,4 dB', true] };
+  const st = { amount: 62, genre: 6, carater: 0 };
+
+  // Knob: 0 a 100 % em -135 a +135 graus
+  const angleOf = (v) => -135 + 2.7 * v;
+  const ticks = $('#ticks'), leds = $('#leds'), LEDS = [];
+  for (let v = 0; v <= 100; v += 5) {
+    const a = angleOf(v), major = v % 25 === 0;
+    const [x1, y1] = pt(120, 120, major ? 90 : 93, a), [x2, y2] = pt(120, 120, major ? 102 : 99, a);
+    el('line', { x1, y1, x2, y2, stroke: major ? '#8C7858' : '#5C4C3A', 'stroke-width': major ? 2 : 1.5, 'stroke-linecap': 'round' }, ticks);
+  }
+  for (let i = 0; i < 24; i++) {
+    const [x, y] = pt(120, 120, 113, -135 + 270 * i / 23);
+    const halo = el('circle', { cx: x, cy: y, r: 4.6, class: 'halo' }, leds);
+    const dot = el('circle', { cx: x, cy: y, r: 2.6, class: 'led-dot' }, leds);
+    LEDS.push({ i, halo, dot });
+  }
+  const renderKnob = () => {
+    const v = st.amount, a = angleOf(v);
+    $('#arcTrack').setAttribute('d', arc(120, 120, 84, -135, 135));
+    $('#arcVal').setAttribute('d', arc(120, 120, 84, -135, a));
+    $('#pointer').setAttribute('transform', `rotate(${a.toFixed(1)} 120 120)`);
+    $('#knobNum').textContent = Math.round(v);
+    $('#knobWrap').setAttribute('aria-valuenow', Math.round(v));
+    LEDS.forEach(({ i, halo, dot }) => {
+      const on = i / 23 * 100 <= v + 0.01;
+      halo.classList.toggle('lit', on);
+      dot.classList.toggle('lit', on);
+    });
+  };
+  const setAmount = (v) => { st.amount = clamp(v, 0, 100); renderKnob(); };
+  const kw = $('#knobWrap');
+  let lastY = null;
+  kw.addEventListener('pointerdown', (e) => { lastY = e.clientY; kw.setPointerCapture(e.pointerId); kw.focus(); });
+  kw.addEventListener('pointermove', (e) => {
+    if (lastY === null) return;
+    setAmount(st.amount + (lastY - e.clientY) * (e.shiftKey ? 0.1 : 0.5));
+    lastY = e.clientY;
+  });
+  const endDrag = () => { lastY = null; };
+  kw.addEventListener('pointerup', endDrag);
+  kw.addEventListener('pointercancel', endDrag);
+  kw.addEventListener('dblclick', () => setAmount(50));
+  kw.addEventListener('keydown', (e) => {
+    const d = { ArrowUp: 1, ArrowRight: 1, ArrowDown: -1, ArrowLeft: -1 }[e.key];
+    if (!d) return;
+    e.preventDefault();
+    setAmount(st.amount + d * (e.shiftKey ? 1 : 5));
+  });
+
+  // Chave rotativa de 5 posições (Caráter)
+  const notches = $('#notches');
+  for (let i = 0; i < 5; i++) {
+    const d = -120 + 60 * i;
+    const [x1, y1] = pt(112, 96, 44, d), [x2, y2] = pt(112, 96, 50, d);
+    el('line', { x1, y1, x2, y2, stroke: '#C9B48A', 'stroke-width': 2, 'stroke-linecap': 'round' }, notches);
+    const [x, y] = pt(112, 96, 74, d);
+    const b = document.createElement('button');
+    b.className = 'pos';
+    b.setAttribute('role', 'radio');
+    b.style.left = x + 'px';
+    b.style.top = y + 'px';
+    b.innerHTML = `<i></i>${CHARS[i]}`;
+    b.onclick = () => setCarater(i);
+    $('#rotary').appendChild(b);
+  }
+  const setCarater = (i) => {
+    st.carater = i;
+    document.querySelectorAll('.pos').forEach((b, k) => b.setAttribute('aria-checked', k === i));
+    $('#rpointer').setAttribute('transform', `rotate(${-120 + 60 * i} 112 96)`);
+  };
+  $('#rotary svg').addEventListener('click', () => setCarater((st.carater + 1) % 5));
+
+  // Gênero
+  const renderGenre = () => {
+    $('#gName').textContent = GENRES[st.genre];
+    $('#gIdx').textContent = `${st.genre + 1} / 8`;
+  };
+  $('#gPrev').onclick = () => { st.genre = (st.genre + 7) % 8; renderGenre(); };
+  $('#gNext').onclick = () => { st.genre = (st.genre + 1) % 8; renderGenre(); };
+
+  // Assistente e A/B
+  const setAssist = (s) => {
+    const [label, live] = ASSIST[s];
+    document.querySelectorAll('.key').forEach((b) => b.setAttribute('aria-pressed', b.dataset.s === s));
+    $('#status').textContent = label;
+    $('#stIco').textContent = live ? '●' : '○';
+    $('#statusRow').classList.toggle('idle', !live);
+  };
+  document.querySelectorAll('.key').forEach((b) => { b.onclick = () => setAssist(b.dataset.s); });
+  document.querySelectorAll('.lever button').forEach((b) => {
+    b.onclick = () => document.querySelectorAll('.lever button').forEach((x) => x.setAttribute('aria-pressed', x === b));
+  });
+
+  // Avançado: gaveta que desliza
+  const drawer = $('#drawer'), adv = $('#advBtn');
+  adv.onclick = () => {
+    const open = !drawer.classList.contains('open');
+    drawer.classList.toggle('open', open);
+    drawer.inert = !open;
+    adv.setAttribute('aria-expanded', open);
+    $('#advTxt').textContent = open ? 'Fechar' : 'Avançado';
+    $('#advChev').textContent = open ? '▼' : '▲';
+  };
+
+  // VU: escala de -20 a 0 LU, arco de -90 a +90 graus
+  const dial = $('#dial');
+  const dv = (v) => -90 + 180 * (v + 20) / 20;
+  el('rect', { x: 0, y: 0, width: 224, height: 120, rx: 8, fill: '#120E0C' }, dial);
+  el('path', { d: arc(112, 108, 96, -90, 90), fill: 'none', stroke: '#5C4C3A', 'stroke-width': 1.5 }, dial);
+  el('path', { d: arc(112, 108, 96, dv(-10.5), dv(-8.5)), fill: 'none', stroke: '#C9994A', 'stroke-width': 6 }, dial);
+  for (let v = -20; v <= 0; v += 1) {
+    const major = v % 5 === 0, a = dv(v);
+    const [x1, y1] = pt(112, 108, major ? 80 : 86, a), [x2, y2] = pt(112, 108, 90, a);
+    el('line', { x1, y1, x2, y2, stroke: major ? '#B3A58E' : '#6B5A46', 'stroke-width': major ? 1.5 : 1 }, dial);
+    if (major) {
+      const [tx, ty] = pt(112, 108, 64, a);
+      el('text', { x: tx, y: ty + 4, 'text-anchor': 'middle', class: 'vu-lbl' }, dial).textContent = num(v, 0);
+    }
+  }
+  const needle = el('g', { id: 'needle' }, dial);
+  el('line', { x1: 112, y1: 108, x2: 112, y2: 24, stroke: '#EDE3D1', 'stroke-width': 2, 'stroke-linecap': 'round' }, needle);
+  el('circle', { cx: 112, cy: 108, r: 6, fill: 'url(#gBrass)' }, dial);
+
+  // Medidores: passeio aleatório suave, ~30 fps
+  const m = { st: -10.8, tp: -1.2, gr: 0.4 };
+  const walk = (x, mean, spread, lo, hi) => clamp(x + (mean - x) * 0.08 + (Math.random() - 0.5) * spread, lo, hi);
+  const renderMeters = () => {
+    $('#needle').setAttribute('transform', `rotate(${dv(m.st).toFixed(1)} 112 108)`);
+    $('#stFill').style.width = ((m.st + 20) / 20 * 100).toFixed(1) + '%';
+    $('#stVal').textContent = num(m.st, 1) + ' LUFS';
+    $('#tpVal').textContent = num(m.tp, 1) + ' dBTP';
+    $('#grVal').textContent = num(-m.gr, 1) + ' dB';
+  };
+  let last = 0;
+  const loop = (t) => {
+    if (t - last >= 33) {
+      last = t;
+      m.st = walk(m.st, -10.8, 0.9, -14.5, -7.5);
+      m.tp = walk(m.tp, -1.2, 0.3, -1.6, -1.0);
+      m.gr = walk(m.gr, 0.4, 0.3, 0, 1.5);
+      renderMeters();
+    }
+    requestAnimationFrame(loop);
+  };
+
+  renderKnob();
+  renderGenre();
+  setCarater(0);
+  setAssist('auto');
+  renderMeters();
+  requestAnimationFrame(loop);
+})();
+</script>
+</body>
+</html>
