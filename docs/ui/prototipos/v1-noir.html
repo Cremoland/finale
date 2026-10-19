@@ -1,0 +1,737 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Finale · Protótipo v1 Noir</title>
+<!--
+  Versão 1 "Noir": knob primeiro. Direção mais próxima do Soundgoodizer, em tom premium.
+  Paleta: tokens CSS no :root (--bg, --surface, --surface-2, --text, --text-dim, --accent, --accent-2, --ok, --warn, --danger).
+  Fonte: IBM Plex Sans (interface) e IBM Plex Mono (números), via Google Fonts.
+  Protótipo estático: só formas vetoriais, gradientes lineares/radiais e sombras simples. Sem backdrop-filter, imagens ou 3D,
+  para portar depois para juce::Path e ColourGradient.
+-->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg: #0E1116;
+  --surface: #171C24;
+  --surface-2: #1F2630;
+  --text: #E6EAF0;
+  --text-dim: #8A94A6;
+  --accent: #4FD1C5;
+  --accent-2: #7C5CFF;
+  --ok: #4FD1C5;
+  --warn: #F5B84B;
+  --danger: #FF5C6C;
+  --line: rgba(230, 234, 240, 0.08);
+  --line-strong: rgba(230, 234, 240, 0.16);
+  --sans: "IBM Plex Sans", "Segoe UI", system-ui, sans-serif;
+  --mono: "IBM Plex Mono", Consolas, ui-monospace, monospace;
+  --r-win: 12px;
+  --r-ctl: 8px;
+  --r-pill: 16px;
+}
+
+* { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  min-height: 100vh;
+  padding: 48px 0;
+  background: #1e1e1e;
+  font-family: var(--sans);
+}
+
+.caption {
+  margin: 16px 0 0;
+  text-align: center;
+  font-size: 13px;
+  color: #A3A3A3;
+}
+
+.stage {
+  --knob: 260px;
+  position: relative;
+  margin: 0 auto;
+  width: 820px;
+  height: 500px;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  background: var(--bg);
+  color: var(--text);
+  border: 1px solid var(--line);
+  border-radius: var(--r-win);
+  box-shadow: 0 24px 48px rgba(0, 0, 0, 0.45);
+}
+.stage.adv-open { --knob: 180px; }
+
+.mono { font-family: var(--mono); font-variant-numeric: tabular-nums; }
+
+button { font-family: var(--sans); }
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+/* ---------- Topo ---------- */
+.top {
+  flex: none;
+  height: 64px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 24px;
+}
+.brand {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 14px;
+  font-weight: 600;
+  letter-spacing: 0.32em;
+  color: var(--text);
+}
+.mark {
+  width: 10px;
+  height: 10px;
+  border-radius: 3px;
+  background: linear-gradient(135deg, var(--accent), var(--accent-2));
+}
+.top-right { display: flex; align-items: flex-start; gap: 16px; }
+.assist, .ab { display: flex; flex-direction: column; gap: 6px; }
+.ab { align-items: center; }
+
+.seg {
+  display: inline-flex;
+  padding: 2px;
+  gap: 2px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--r-ctl);
+}
+.seg button {
+  height: 28px;
+  padding: 0 12px;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--text-dim);
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+}
+.seg button[aria-pressed="true"] {
+  background: var(--surface-2);
+  color: var(--text);
+  font-weight: 600;
+  box-shadow: inset 0 -2px 0 var(--accent);
+}
+
+.status {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  height: 16px;
+  font-size: 12px;
+  color: var(--text);
+}
+.status i {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--accent);
+}
+.sub {
+  font-size: 11px;
+  color: var(--text-dim);
+  line-height: 16px;
+}
+
+/* ---------- Corpo ---------- */
+.main {
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+  gap: 20px;
+  padding: 16px 24px;
+}
+.left {
+  flex: 1 1 auto;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+.knob-area {
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.knob {
+  position: relative;
+  flex: none;
+  width: var(--knob);
+  height: var(--knob);
+  cursor: ns-resize;
+  touch-action: none;
+  user-select: none;
+  transition: width 0.25s ease, height 0.25s ease;
+}
+.knob svg {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+}
+.glow {
+  position: absolute;
+  inset: -10%;
+  border-radius: 50%;
+  background: radial-gradient(closest-side, rgba(79, 209, 197, 0.22), rgba(79, 209, 197, 0));
+  opacity: 0.8;
+  pointer-events: none;
+  transition: opacity 0.2s ease;
+}
+.knob:hover .glow { opacity: 1; }
+.track { fill: none; stroke: #232B37; stroke-width: 10; stroke-linecap: round; }
+.glow-arc { fill: none; stroke: var(--accent); stroke-width: 22; stroke-linecap: round; opacity: 0.16; }
+.val-arc { fill: none; stroke: var(--accent); stroke-width: 10; stroke-linecap: round; }
+.body { stroke: rgba(230, 234, 240, 0.07); stroke-width: 1; }
+.tick { stroke: var(--text-dim); stroke-width: 2; stroke-linecap: round; opacity: 0.6; }
+.ptr { stroke: var(--text); stroke-width: 4; stroke-linecap: round; }
+
+.readout {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  pointer-events: none;
+}
+.num {
+  display: flex;
+  align-items: baseline;
+  font-family: var(--mono);
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
+  line-height: 1;
+  letter-spacing: -0.02em;
+  font-size: calc(var(--knob) * 0.215);
+}
+.num .pct {
+  margin-left: 4px;
+  font-size: calc(var(--knob) * 0.077);
+  color: var(--text-dim);
+}
+.cap {
+  margin-top: 8px;
+  font-size: 10px;
+  font-weight: 500;
+  letter-spacing: 0.2em;
+  color: var(--text-dim);
+}
+
+/* ---------- Chips ---------- */
+.controls {
+  flex: none;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.crow { display: flex; align-items: center; gap: 8px; }
+.rlabel {
+  flex: none;
+  width: 56px;
+  font-size: 10px;
+  font-weight: 500;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--text-dim);
+}
+.chips { display: flex; flex: 1 1 auto; min-width: 0; gap: 4px; }
+.chip {
+  flex: 1 1 auto;
+  height: 32px;
+  padding: 0 8px;
+  border: 1px solid var(--line-strong);
+  border-radius: var(--r-pill);
+  background: transparent;
+  color: var(--text-dim);
+  font-size: 12px;
+  font-weight: 500;
+  white-space: nowrap;
+  cursor: pointer;
+}
+.chip[aria-pressed="true"] {
+  background: var(--surface-2);
+  border-color: var(--accent);
+  color: var(--text);
+  font-weight: 600;
+  box-shadow: inset 0 0 0 1px var(--accent);
+}
+
+/* ---------- Medidores ---------- */
+.meter {
+  flex: none;
+  width: 172px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding-left: 20px;
+  border-left: 1px solid var(--line);
+}
+.m-title {
+  font-size: 10px;
+  font-weight: 500;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--text-dim);
+}
+.m-head, .m-row {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  font-size: 12px;
+}
+.m-st {
+  position: relative;
+  flex: 1 1 auto;
+  min-height: 60px;
+}
+.m-st .track {
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 22px;
+  background: var(--surface-2);
+  border-radius: 4px;
+  overflow: hidden;
+}
+.fill {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 62.5%;
+  background: linear-gradient(to top, var(--accent-2), var(--accent));
+}
+.band {
+  position: absolute;
+  left: -4px;
+  width: 30px;
+  background: rgba(230, 234, 240, 0.12);
+  border-radius: 2px;
+}
+.tline {
+  position: absolute;
+  left: -4px;
+  width: 30px;
+  height: 2px;
+  background: var(--text);
+  border-radius: 1px;
+}
+.tlabel {
+  position: absolute;
+  left: 36px;
+  transform: translateY(-50%);
+  font-family: var(--mono);
+  font-size: 11px;
+  white-space: nowrap;
+  color: var(--text);
+}
+.scale {
+  position: absolute;
+  left: 36px;
+  font-family: var(--mono);
+  font-size: 10px;
+  color: var(--text-dim);
+}
+.scale.s0 { top: 0; }
+.scale.s1 { bottom: 0; }
+
+.big {
+  display: flex;
+  align-items: baseline;
+  font-size: 36px;
+  font-weight: 500;
+  line-height: 1;
+  margin-top: 6px;
+}
+.unit {
+  margin-left: 6px;
+  font-family: var(--sans);
+  font-size: 12px;
+  color: var(--text-dim);
+}
+.m-block { display: flex; flex-direction: column; gap: 6px; }
+.bar {
+  position: relative;
+  height: 4px;
+  border-radius: 2px;
+  background: var(--surface-2);
+}
+.bar-fill {
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  border-radius: 2px;
+  background: var(--accent);
+}
+.bar-fill.gr { left: auto; right: 0; background: var(--warn); }
+.bar-mark {
+  position: absolute;
+  left: 83.33%;
+  top: -3px;
+  bottom: -3px;
+  width: 2px;
+  border-radius: 1px;
+  background: var(--text);
+}
+.m-note { font-size: 11px; color: var(--text-dim); }
+
+/* ---------- Avançado ---------- */
+.adv-wrap {
+  flex: none;
+  display: grid;
+  grid-template-rows: 0fr;
+  transition: grid-template-rows 0.25s ease;
+}
+.stage.adv-open .adv-wrap { grid-template-rows: 1fr; }
+.adv-inner { min-height: 0; overflow: hidden; }
+.adv-panel {
+  height: 88px;
+  display: flex;
+  align-items: center;
+  gap: 24px;
+  padding: 0 24px;
+  background: var(--surface);
+  border-top: 1px solid var(--line);
+}
+.mini { flex: 1 1 0; min-width: 0; display: flex; flex-direction: column; gap: 8px; }
+.mini-h {
+  display: flex;
+  justify-content: space-between;
+  font-size: 11px;
+  color: var(--text-dim);
+}
+.mini-h .mono { font-size: 12px; color: var(--text); }
+.mini-bar { height: 4px; border-radius: 2px; background: var(--surface-2); overflow: hidden; }
+.mini-bar i {
+  display: block;
+  height: 100%;
+  background: linear-gradient(90deg, var(--accent-2), var(--accent));
+}
+.info-col {
+  flex: none;
+  width: 180px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding-left: 24px;
+  border-left: 1px solid var(--line);
+}
+.info { display: flex; justify-content: space-between; align-items: baseline; font-size: 11px; color: var(--text-dim); }
+.info .mono { font-size: 12px; color: var(--text); }
+
+/* ---------- Rodapé ---------- */
+.foot {
+  flex: none;
+  height: 48px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 24px;
+  border-top: 1px solid var(--line);
+}
+.adv-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  height: 32px;
+  margin-left: -8px;
+  padding: 0 8px;
+  border: 0;
+  border-radius: var(--r-ctl);
+  background: transparent;
+  color: var(--text);
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+}
+.caret { display: inline-block; font-size: 12px; color: var(--text); transition: transform 0.2s ease; }
+.stage.adv-open .caret { transform: rotate(90deg); }
+.hint { font-size: 11px; color: var(--text-dim); }
+</style>
+</head>
+<body>
+<div class="stage" id="stage">
+  <header class="top">
+    <div class="brand"><span class="mark" aria-hidden="true"></span>FINALE</div>
+    <div class="top-right">
+      <div class="assist">
+        <div class="seg" id="assistSeg" role="group" aria-label="Assistente">
+          <button type="button" data-v="off" aria-pressed="false">Off</button>
+          <button type="button" data-v="analisar" aria-pressed="false">Analisar</button>
+          <button type="button" data-v="auto" aria-pressed="true">Auto</button>
+          <button type="button" data-v="congelar" aria-pressed="false">Congelar</button>
+        </div>
+        <div class="status" aria-live="polite"><i aria-hidden="true"></i><span id="assistStatus">Ajustando · +2,4 dB</span></div>
+      </div>
+      <div class="ab">
+        <div class="seg" id="abSeg" role="group" aria-label="Comparação A/B">
+          <button type="button" aria-pressed="true">A · Finale</button>
+          <button type="button" aria-pressed="false">B · Original</button>
+        </div>
+        <div class="sub">volume igualado</div>
+      </div>
+    </div>
+  </header>
+
+  <div class="main">
+    <section class="left">
+      <div class="knob-area">
+        <div class="knob" id="knob" role="slider" tabindex="0" aria-label="Amount" aria-valuemin="0" aria-valuemax="100" aria-valuenow="62" aria-valuetext="62 por cento" title="Arraste para cima ou para baixo. Shift: ajuste fino. Duplo clique: 50 %">
+          <div class="glow" aria-hidden="true"></div>
+          <svg viewBox="0 0 260 260" aria-hidden="true" focusable="false">
+            <defs>
+              <radialGradient id="kbody" cx="50%" cy="36%" r="62%">
+                <stop offset="0" stop-color="#2A323F"/>
+                <stop offset="1" stop-color="#131820"/>
+              </radialGradient>
+            </defs>
+            <g id="ticks"></g>
+            <path id="trackArc" class="track"/>
+            <path id="glowArc" class="glow-arc" d=""/>
+            <path id="valArc" class="val-arc" d=""/>
+            <circle cx="130" cy="130" r="82" fill="url(#kbody)" class="body"/>
+            <g id="ptr"><line x1="130" y1="74" x2="130" y2="50" class="ptr"/></g>
+          </svg>
+          <div class="readout">
+            <div class="num"><span id="readout">62</span><span class="pct">%</span></div>
+            <div class="cap">AMOUNT</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="controls">
+        <div class="crow">
+          <span class="rlabel">Gênero</span>
+          <div class="chips" role="group" aria-label="Gênero">
+            <button type="button" class="chip" aria-pressed="false">Trap</button>
+            <button type="button" class="chip" aria-pressed="false">Rap/Boom bap</button>
+            <button type="button" class="chip" aria-pressed="false">Lo-fi</button>
+            <button type="button" class="chip" aria-pressed="false">Funk BR</button>
+            <button type="button" class="chip" aria-pressed="false">House</button>
+            <button type="button" class="chip" aria-pressed="false">EDM</button>
+            <button type="button" class="chip" aria-pressed="true">Pop</button>
+            <button type="button" class="chip" aria-pressed="false">Rock</button>
+          </div>
+        </div>
+        <div class="crow">
+          <span class="rlabel">Caráter</span>
+          <div class="chips" role="group" aria-label="Caráter">
+            <button type="button" class="chip" aria-pressed="true">Clean</button>
+            <button type="button" class="chip" aria-pressed="false">Warm</button>
+            <button type="button" class="chip" aria-pressed="false">Punch</button>
+            <button type="button" class="chip" aria-pressed="false">Wide</button>
+            <button type="button" class="chip" aria-pressed="false">DOOM</button>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <aside class="meter" aria-label="Medidores de loudness">
+      <div class="m-head"><span class="m-title">Short-term</span><span class="mono" id="shortVal">−9,0</span></div>
+      <div class="m-st">
+        <div class="track"><div class="fill" id="shortFill"></div></div>
+        <div class="band" id="tband"></div>
+        <div class="tline" id="tline"></div>
+        <span class="scale s0">0</span>
+        <span class="scale s1">−24</span>
+        <div class="tlabel" id="tlabel">alvo −9,5 · Pop</div>
+      </div>
+      <div class="m-block">
+        <span class="m-title">Integrado</span>
+        <div class="big mono"><span id="lufsVal">−9,6</span><span class="unit">LUFS</span></div>
+      </div>
+      <div class="m-block">
+        <div class="m-row"><span class="m-title">True peak</span><span class="mono" id="tpVal">−1,2 dBTP</span></div>
+        <div class="bar"><i class="bar-fill" id="tpFill"></i><i class="bar-mark"></i></div>
+        <div class="m-note">teto −1,0 dBTP</div>
+      </div>
+      <div class="m-block">
+        <div class="m-row"><span class="m-title">GR limiter</span><span class="mono" id="grVal">−1,6 dB</span></div>
+        <div class="bar"><i class="bar-fill gr" id="grFill"></i></div>
+      </div>
+    </aside>
+  </div>
+
+  <div class="adv-wrap">
+    <div class="adv-inner" id="advInner" inert>
+      <div class="adv-panel">
+        <div class="mini"><div class="mini-h"><span>EQ</span><span class="mono">100 %</span></div><div class="mini-bar"><i style="width:100%"></i></div></div>
+        <div class="mini"><div class="mini-h"><span>Compressão</span><span class="mono">100 %</span></div><div class="mini-bar"><i style="width:100%"></i></div></div>
+        <div class="mini"><div class="mini-h"><span>Saturação</span><span class="mono">100 %</span></div><div class="mini-bar"><i style="width:100%"></i></div></div>
+        <div class="mini"><div class="mini-h"><span>Largura</span><span class="mono">100 %</span></div><div class="mini-bar"><i style="width:100%"></i></div></div>
+        <div class="info-col">
+          <div class="info"><span>Ajuste de LUFS</span><span class="mono">+0,0 LU</span></div>
+          <div class="info"><span>Alvo manual:</span><span class="mono">desligado</span></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <footer class="foot">
+    <button type="button" class="adv-btn" id="advBtn" aria-expanded="false" aria-controls="advInner">Avançado <span class="caret" aria-hidden="true">▸</span></button>
+    <span class="hint">Arraste · Shift: fino · Duplo clique: 50 %</span>
+  </footer>
+</div>
+<p class="caption">Versão 1 · Noir · knob primeiro</p>
+
+<script>
+(() => {
+  'use strict';
+  const NS = 'http://www.w3.org/2000/svg';
+  const $ = (s) => document.querySelector(s);
+  const $$ = (s) => [...document.querySelectorAll(s)];
+  const clamp = (v, a, b) => Math.min(b, Math.max(a, v));
+  const fmt = (v, d = 1) => (v < 0 ? '−' : '') + Math.abs(v).toFixed(d).replace('.', ',');
+  const C = 130, R = 104, START = -135, SPAN = 270;
+  const P = (a, r = R) => [C + r * Math.sin(a * Math.PI / 180), C - r * Math.cos(a * Math.PI / 180)];
+  const arc = (a0, a1) => {
+    const [x0, y0] = P(a0), [x1, y1] = P(a1);
+    return `M${x0.toFixed(2)} ${y0.toFixed(2)}A${R} ${R} 0 ${a1 - a0 > 180 ? 1 : 0} 1 ${x1.toFixed(2)} ${y1.toFixed(2)}`;
+  };
+
+  // Knob "Amount": arco, ponteiro e número
+  const knob = $('#knob');
+  let amount = 62;
+  $('#trackArc').setAttribute('d', arc(START, START + SPAN));
+  const ticks = $('#ticks');
+  for (let i = 0; i <= 10; i++) {
+    const a = START + SPAN * i / 10;
+    const [x1, y1] = P(a, 116), [x2, y2] = P(a, i % 5 ? 121 : 124);
+    const l = document.createElementNS(NS, 'line');
+    l.setAttribute('x1', x1.toFixed(2)); l.setAttribute('y1', y1.toFixed(2));
+    l.setAttribute('x2', x2.toFixed(2)); l.setAttribute('y2', y2.toFixed(2));
+    l.setAttribute('class', 'tick');
+    ticks.appendChild(l);
+  }
+  const render = () => {
+    const end = START + SPAN * amount / 100;
+    const d = amount > 0.05 ? arc(START, end) : '';
+    $('#valArc').setAttribute('d', d);
+    $('#glowArc').setAttribute('d', d);
+    $('#ptr').setAttribute('transform', `rotate(${end.toFixed(2)} ${C} ${C})`);
+    $('#readout').textContent = Math.round(amount);
+    knob.setAttribute('aria-valuenow', Math.round(amount));
+    knob.setAttribute('aria-valuetext', `${Math.round(amount)} por cento`);
+  };
+  const setAmount = (v) => { amount = clamp(Math.round(v * 10) / 10, 0, 100); render(); };
+
+  let drag = null;
+  knob.addEventListener('pointerdown', (e) => {
+    drag = { y: e.clientY };
+    knob.focus();
+    knob.setPointerCapture(e.pointerId);
+    e.preventDefault();
+  });
+  knob.addEventListener('pointermove', (e) => {
+    if (!drag) return;
+    const k = e.shiftKey ? 0.1 : 0.5; // Shift: ajuste fino
+    setAmount(amount + (drag.y - e.clientY) * k);
+    drag.y = e.clientY;
+  });
+  const endDrag = () => { drag = null; };
+  knob.addEventListener('pointerup', endDrag);
+  knob.addEventListener('pointercancel', endDrag);
+  knob.addEventListener('dblclick', () => setAmount(50));
+  knob.addEventListener('keydown', (e) => {
+    const step = e.shiftKey ? 1 : 5;
+    const keys = { ArrowUp: step, ArrowRight: step, ArrowDown: -step, ArrowLeft: -step };
+    if (e.key in keys) { setAmount(amount + keys[e.key]); e.preventDefault(); }
+    if (e.key === 'Home') setAmount(0);
+    if (e.key === 'End') setAmount(100);
+  });
+  render();
+
+  // Gênero: alvo de LUFS. Mesma escala do medidor de short-term (-24..0 LUFS, de cima para baixo)
+  const GENRES = [['Trap', -9], ['Rap/Boom bap', -9], ['Lo-fi', -9], ['Funk BR', -9], ['House', -9], ['EDM', -8.5], ['Pop', -9.5], ['Rock', -9]];
+  const yOfLufs = (v) => (1 - (v + 24) / 24) * 100;
+  const tlabel = $('#tlabel'), tline = $('#tline'), tband = $('#tband');
+  const renderGenre = (i) => {
+    const [name, t] = GENRES[i];
+    const y = yOfLufs(t).toFixed(2);
+    tlabel.textContent = `alvo ${fmt(t)} · ${name}`;
+    tlabel.style.top = y + '%';
+    tline.style.top = `calc(${y}% - 1px)`;
+    tband.style.top = yOfLufs(t + 1).toFixed(2) + '%'; // faixa de ±1 LU
+    tband.style.height = (yOfLufs(t - 1) - yOfLufs(t + 1)).toFixed(2) + '%';
+  };
+  renderGenre(Math.max(0, $$('.chips[aria-label="Gênero"] .chip').findIndex((c) => c.getAttribute('aria-pressed') === 'true')));
+
+  // Seletores: gênero, caráter, assistente e A/B
+  const ASSIST = {
+    off: 'Desligado · ajuste manual',
+    analisar: 'Analisando · sem alterar',
+    auto: 'Ajustando · +2,4 dB',
+    congelar: 'Congelado · +2,4 dB',
+  };
+  $$('[role="group"]').forEach((group) => group.addEventListener('click', (e) => {
+    const b = e.target.closest('button');
+    if (!b || !group.contains(b)) return;
+    $$('button', group).forEach((x) => x.setAttribute('aria-pressed', String(x === b)));
+    if (group.id === 'assistSeg') $('#assistStatus').textContent = ASSIST[b.dataset.v];
+    if (group.getAttribute('aria-label') === 'Gênero') renderGenre([...group.children].indexOf(b));
+  }));
+
+  // Painel Avançado
+  const stage = $('#stage'), advBtn = $('#advBtn'), advInner = $('#advInner');
+  advBtn.addEventListener('click', () => {
+    const open = !stage.classList.contains('adv-open');
+    stage.classList.toggle('adv-open', open);
+    advBtn.setAttribute('aria-expanded', String(open));
+    advInner.inert = !open;
+  });
+
+  // Medidores: passeio aleatório suave em volta dos valores de exemplo, ~30 fps
+  const m = { short: -9.0, lufs: -9.6, tp: -1.2, gr: 1.6 };
+  const walk = (v, target, spread, pull, lo, hi) =>
+    clamp(v + (Math.random() * 2 - 1) * spread + (target - v) * pull, lo, hi);
+  const el = {
+    shortVal: $('#shortVal'), shortFill: $('#shortFill'),
+    lufs: $('#lufsVal'), tp: $('#tpVal'), tpFill: $('#tpFill'),
+    gr: $('#grVal'), grFill: $('#grFill'),
+  };
+  const meters = () => {
+    m.short = walk(m.short, -9.0, 0.2, 0.02, -11.5, -7.0);
+    m.lufs = walk(m.lufs, -9.6, 0.02, 0.05, -9.9, -9.3);
+    m.tp = walk(m.tp, -1.2, 0.03, 0.05, -1.5, -1.05); // nunca passa do teto de -1,0 dBTP
+    m.gr = walk(m.gr, 1.6, 0.05, 0.05, 0.8, 2.6);
+    el.shortVal.textContent = fmt(m.short);
+    el.shortFill.style.height = ((m.short + 24) / 24 * 100).toFixed(1) + '%'; // escala -24..0 LUFS
+    el.lufs.textContent = fmt(m.lufs);
+    el.tp.textContent = fmt(m.tp) + ' dBTP';
+    el.tpFill.style.width = ((m.tp + 6) / 6 * 100).toFixed(1) + '%'; // escala -6..0 dBTP
+    el.gr.textContent = fmt(-m.gr) + ' dB';
+    el.grFill.style.width = (m.gr / 12 * 100).toFixed(1) + '%'; // escala 0..12 dB
+  };
+  const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  let last = 0;
+  const frame = (t) => {
+    if (t - last >= 33) { last = t; meters(); }
+    requestAnimationFrame(frame);
+  };
+  meters();
+  if (!reduce) requestAnimationFrame(frame);
+})();
+</script>
+</body>
+</html>
