@@ -1,5 +1,7 @@
 #include "Plugin/PluginEditor.h"
+#include "Plugin/LoudnessPanel.h" // box de loudness (usado a partir da Task 5)
 #include "Plugin/Theme.h" // cores, fontes e peças visuais da interface
+#include "Plugin/Widgets.h" // knob, seletor e mini-controle (usados a partir da Task 5)
 
 namespace finale
 {
