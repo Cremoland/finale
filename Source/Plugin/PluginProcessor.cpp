@@ -122,6 +122,7 @@ void FinaleProcessor::prepareToPlay (double sampleRate, int samplesPerBlock)
     abCompare.prepare (sampleRate, channels, dsp::Saturator::latency, maxChunk);
 
     tonalEq.prepare (sampleRate, channels);
+    outputPeak.prepare (2); // processBlock indexa até 2 canais (chunk[2]), mesmo com mono
     assistant.prepare (sampleRate);
     tonalAnalyzer.prepare (sampleRate);
     tonalAssistant.prepare (sampleRate);
@@ -255,6 +256,14 @@ void FinaleProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::Midi
         abCompare.setCompare (compare);
         abCompare.setCeilingDecibels (ceilingDb);
         abCompare.process (dry, chunk, channels, n);
+
+        // True peak do que se ouve (depois do A/B), para a interface.
+        float peak = 0.0f;
+        for (int ch = 0; ch < channels; ++ch)
+            for (int i = 0; i < n; ++i)
+                peak = std::max (peak, outputPeak.push (ch, chunk[ch][i]));
+        outputTruePeakDb.store (peak > 1.0e-5f ? 20.0f * std::log10 (peak) : -100.0f, std::memory_order_relaxed);
+        limiterReductionDb.store (limiter.getGainReductionDb(), std::memory_order_relaxed);
     }
 }
 

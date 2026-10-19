@@ -12,6 +12,7 @@
 #include "DSP/StereoWidth.h"
 #include "DSP/TonalAssistant.h"
 #include "DSP/TonalEq.h"
+#include "DSP/TruePeakDetector.h"
 #include "DSP/TruePeakLimiter.h"
 
 #include <juce_audio_processors/juce_audio_processors.h>
@@ -83,6 +84,12 @@ public:
     // Alvo de loudness em uso (gênero + ajuste, ou o manual), para a interface. O editor lê de outra thread.
     float getLoudnessTargetLufs() const { return loudnessTargetLufs.load (std::memory_order_relaxed); }
 
+    // Para a interface; o editor lê de outra thread, por isso atomic.
+    // True peak do que se ouve (depois do A/B) no último pedaço, em dBTP. Piso de −100.
+    float getOutputTruePeakDb() const { return outputTruePeakDb.load (std::memory_order_relaxed); }
+    // Redução de ganho do limiter no último pedaço, em dB (>= 0).
+    float getLimiterReductionDb() const { return limiterReductionDb.load (std::memory_order_relaxed); }
+
     // Correção tonal atual do assistente em dB por banda (90 Hz, 300 Hz, 3 kHz, 10 kHz), antes da escala de
     // amount e EQ. O editor lê de outra thread, por isso atomic.
     std::array<float, 4> getTonalCorrectionDb() const
@@ -112,6 +119,9 @@ private:
     dsp::Gain push;
     std::atomic<float>* ceilingParam = nullptr;
     dsp::TruePeakLimiter limiter;
+    dsp::TruePeakDetector outputPeak;
+    std::atomic<float> outputTruePeakDb { -100.0f };
+    std::atomic<float> limiterReductionDb { 0.0f };
     dsp::LoudnessMeter outputMeter;
     std::atomic<float> outputMomentaryLufs { dsp::LoudnessMeter::floorLufs };
     std::atomic<float> outputShortTermLufs { dsp::LoudnessMeter::floorLufs };

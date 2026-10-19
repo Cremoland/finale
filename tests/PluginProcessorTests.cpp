@@ -2,6 +2,7 @@
 #include "DSP/TonalAssistant.h"
 #include "DSP/TruePeakDetector.h"
 #include "DSP/TruePeakLimiter.h"
+#include "Plugin/PluginEditor.h"
 #include "Plugin/PluginProcessor.h"
 
 #include <catch2/catch_approx.hpp>
@@ -10,6 +11,7 @@
 #include <algorithm>
 #include <cmath>
 #include <initializer_list>
+#include <memory>
 #include <random>
 #include <vector>
 
@@ -543,4 +545,72 @@ TEST_CASE ("estado: projeto antigo numa instância reaproveitada usa os padrões
     CHECK (rawParam (r, finale::ParamIDs::targetLufs) == Approx (-12.0f));
     r.prepareToPlay (48000.0, 512);
     CHECK (targetAfterBlock (r) == Approx (-12.0f).margin (1.0e-4));
+}
+
+TEST_CASE ("interface: true peak e redução do limiter")
+{
+    const juce::ScopedJuceInitialiser_GUI juceInit;
+    FinaleProcessor p;
+    setParam (p, finale::ParamIDs::gain, 12.0f);
+    setParam (p, finale::ParamIDs::amount, 100.0f);
+    p.prepareToPlay (48000.0, 512);
+    run (p, 2, 48000.0, 0.5f, 2.0, { 512 });
+    run (p, 2, 48000.0, 0.5f, 0.2, { 1, 0, 37 }); // blocos de 1 e 0 amostras, sem perder a leitura
+    CHECK (p.getOutputTruePeakDb() <= -1.0f + 0.1f);
+    CHECK (p.getOutputTruePeakDb() > -6.0f);
+    CHECK (p.getLimiterReductionDb() > 0.5f);
+
+    FinaleProcessor quiet;
+    quiet.prepareToPlay (48000.0, 512);
+    juce::AudioBuffer<float> silence (2, 512);
+    silence.clear();
+    juce::MidiBuffer midi;
+    quiet.processBlock (silence, midi);
+    CHECK (quiet.getOutputTruePeakDb() == -100.0f);
+    CHECK (quiet.getLimiterReductionDb() == Approx (0.0f).margin (1.0e-3));
+}
+
+namespace
+{
+
+// Grava a captura só com FINALE_SNAPSHOT definido (revisão visual local). Na CI nada fica para trás.
+void saveSnapshotIfRequested (const juce::Image& image, const char* fileName)
+{
+    if (juce::SystemStats::getEnvironmentVariable ("FINALE_SNAPSHOT", { }).isEmpty())
+        return;
+
+    juce::File out = juce::File::getSpecialLocation (juce::File::tempDirectory).getChildFile (fileName);
+    juce::FileOutputStream stream (out);
+    if (stream.openedOk())
+    {
+        stream.setPosition (0);
+        stream.truncate();
+        juce::PNGImageFormat().writeImageToStream (image, stream);
+    }
+}
+
+} // namespace
+
+TEST_CASE ("interface: editor abre e desenha")
+{
+    const juce::ScopedJuceInitialiser_GUI juceInit;
+    FinaleProcessor p;
+    p.prepareToPlay (48000.0, 512);
+    std::unique_ptr<juce::AudioProcessorEditor> editor (p.createEditor());
+    REQUIRE (editor != nullptr);
+    CHECK (editor->getWidth() == 820);
+    CHECK (editor->getHeight() == 500);
+    const auto image = editor->createComponentSnapshot (editor->getLocalBounds());
+    CHECK (image.getPixelAt (4, 4) == juce::Colour (0xffF4F1EA));
+    saveSnapshotIfRequested (image, "finale-editor.png");
+
+    // Avançado aberto: a janela continua 820 × 500 e o fundo não muda.
+    auto* finaleEditor = dynamic_cast<finale::FinaleEditor*> (editor.get());
+    REQUIRE (finaleEditor != nullptr);
+    finaleEditor->setAdvancedOpen (true);
+    CHECK (editor->getWidth() == 820);
+    CHECK (editor->getHeight() == 500);
+    const auto advancedImage = editor->createComponentSnapshot (editor->getLocalBounds());
+    CHECK (advancedImage.getPixelAt (4, 4) == juce::Colour (0xffF4F1EA));
+    saveSnapshotIfRequested (advancedImage, "finale-editor-avancado.png");
 }
