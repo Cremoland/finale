@@ -220,7 +220,6 @@
   .tlabel {
     position: absolute;
     top: 0;
-    left: 52.5%;
     transform: translateX(-50%);
     font-size: 12px;
     line-height: 16px;
@@ -240,7 +239,6 @@
   .tri {
     position: absolute;
     top: 20px;
-    left: 52.5%;
     transform: translateX(-50%);
     width: 0;
     height: 0;
@@ -248,7 +246,7 @@
     border-right: 5px solid transparent;
     border-top: 7px solid var(--text);
   }
-  .tgt { position: absolute; top: 24px; left: 52.5%; width: 2px; height: 20px; margin-left: -1px; background: var(--text); }
+  .tgt { position: absolute; top: 24px; width: 2px; height: 20px; margin-left: -1px; background: var(--text); }
   .track {
     position: absolute;
     left: 0;
@@ -444,10 +442,10 @@
 
     <section class="meter" aria-label="Medidor de loudness">
       <div class="bars">
-        <span class="tlabel">alvo −9,5 · Pop</span>
-        <span class="st-label">Curto prazo <span class="num" id="st-val">−8,4</span></span>
-        <div class="tri"></div>
-        <div class="tgt"></div>
+        <span class="tlabel" id="tlabel">alvo −9,5 · Pop</span>
+        <span class="st-label">Curto prazo <span class="num" id="st-val">−9,0</span></span>
+        <div class="tri" id="tri"></div>
+        <div class="tgt" id="tgt"></div>
         <div class="track int"><div class="fill int" id="int-bar"></div></div>
         <div class="track st"><div class="fill st" id="st-bar"></div></div>
         <div class="ruler">
@@ -476,7 +474,7 @@
       </div>
       <div class="meta">
         <span class="kicker">GR limiter</span>
-        <span class="num" id="gr-val">−0,6 dB</span>
+        <span class="num" id="gr-val">−1,6 dB</span>
         <div class="mini"><div class="track"><div class="fill gr" id="gr-bar"></div></div></div>
       </div>
       <button type="button" class="adv-toggle" id="adv-toggle" aria-expanded="false" aria-controls="adv">Avançado <span class="arr">→</span></button>
@@ -580,6 +578,7 @@
         o.setAttribute('aria-checked', o === btn ? 'true' : 'false');
       });
       if (group.dataset.group === 'assist') $('assist-status').textContent = ASSIST_STATUS[btn.dataset.value];
+      if (group.dataset.group === 'genre') renderGenre([...group.querySelectorAll('[role="radio"]')].indexOf(btn));
     });
   });
 
@@ -601,9 +600,9 @@
   /* Medidores: passeio aleatório suave em volta dos valores de exemplo, ~30 fps */
   const M = {
     int: { v: -9.6, base: -9.6, step: 0.03, lo: -10.1, hi: -9.1 },
-    st:  { v: -8.4, base: -8.4, step: 0.08, lo: -9.6,  hi: -7.2 },
+    st:  { v: -9.0, base: -9.0, step: 0.08, lo: -9.8,  hi: -8.2 },
     tp:  { v: -1.2, base: -1.2, step: 0.03, lo: -1.6,  hi: -1.05 },
-    gr:  { v: 0.6,  base: 0.6,  step: 0.03, lo: 0.2,   hi: 1.2 }
+    gr:  { v: 1.6,  base: 1.6,  step: 0.03, lo: 1.0,   hi: 2.2 }
   };
   const fmt = (v) => (v < 0 ? '−' : '') + Math.abs(v).toFixed(1).replace('.', ',');
   const walk = (m) => {
@@ -630,6 +629,18 @@
     }
     requestAnimationFrame(loop);
   }
+
+  /* Gênero: alvo de LUFS na escala do medidor (-20..0 LUFS, da esquerda para a direita) */
+  const GENRES = [['Trap', -9], ['Rap/Boom bap', -9], ['Lo-fi', -9], ['Funk BR', -9], ['House', -9], ['EDM', -8.5], ['Pop', -9.5], ['Rock', -9]];
+  const renderGenre = (i) => {
+    const [name, t] = GENRES[i];
+    const x = ((t + 20) / 20 * 100).toFixed(2) + '%';
+    $('tlabel').textContent = `alvo ${fmt(t)} · ${name}`;
+    $('tlabel').style.left = x;
+    $('tri').style.left = x;
+    $('tgt').style.left = x;
+  };
+  renderGenre(Math.max(0, [...document.querySelectorAll('[data-group="genre"] [role="radio"]')].findIndex((b) => b.getAttribute('aria-checked') === 'true')));
 
   drawKnob();
   render();

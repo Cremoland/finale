@@ -246,12 +246,12 @@
       <div class="readouts">
         <div class="ro">
           <span class="label">Integrado</span>
-          <span class="val">−9,6<small>LUFS</small></span>
-          <span class="sub">alvo <span class="num">−9,5</span> · Pop</span>
+          <span class="val"><span id="intVal">−9,6</span><small>LUFS</small></span>
+          <span class="sub" id="tgtSub">alvo <span class="num">−9,5</span> · Pop</span>
         </div>
         <div class="ro">
           <span class="label">Short-term</span>
-          <span class="val"><span id="stVal">−9,5</span><small>LUFS</small></span>
+          <span class="val"><span id="stVal">−9,0</span><small>LUFS</small></span>
           <div class="mini"><div id="stFill"></div></div>
         </div>
         <div class="ro">
@@ -370,6 +370,11 @@
   const STATUS = { off: ['Desligado', ''], analisar: ['Analisando · sem alterar', 'acc'], auto: ['Ajustando · +2,4 dB', 'ok'], congelar: ['Congelado · +2,4 dB', 'warn'] };
   const statusEl = $('#status');
   let gen = 'Pop', car = 'Clean', ab = 'a';
+  // Alvo de LUFS por gênero (ordem da lista). Faixa do gráfico e leitura seguem este valor
+  const GENRE_TARGETS = [-9, -9, -9, -9, -9, -8.5, -9.5, -9];
+  let tgt = -9.5;
+  const tgtSub = $('#tgtSub');
+  const setTarget = (gi) => { tgt = GENRE_TARGETS[gi]; tgtSub.innerHTML = `alvo <span class="num">${fmt(tgt)}</span> · ${gen}`; };
   function group(sel, fn) {
     const btns = $$(sel + ' > button');
     btns.forEach(b => b.addEventListener('click', () => {
@@ -378,7 +383,7 @@
     }));
   }
   const updPreset = () => { $('#presetTxt').textContent = `${gen} · ${car}`; };
-  group('#genres', b => { gen = b.textContent; updPreset(); });
+  group('#genres', b => { gen = b.textContent; setTarget([...b.parentElement.children].indexOf(b)); updPreset(); });
   group('#chars', b => { car = b.textContent; updPreset(); });
   group('#asst', b => { const [t, tone] = STATUS[b.dataset.v]; statusEl.textContent = t; statusEl.dataset.tone = tone; });
   group('#ab', b => { ab = b.dataset.v; });
@@ -404,20 +409,22 @@
 
   // Medidores: passeio aleatório suave, ~30 fps
   const N = 240; // 8 s de histórico
-  const hST = new Float32Array(N).fill(-9.5), hMO = new Float32Array(N).fill(-9.4), hIN = new Float32Array(N).fill(-13);
-  let st = -9.5, mo = -9.4, inp = -13, tp = -1.3, gr = 1.6;
+  const hST = new Float32Array(N).fill(-9.0), hMO = new Float32Array(N).fill(-9.4), hIN = new Float32Array(N).fill(-13);
+  let st = -9.0, mo = -9.4, inp = -13, tp = -1.3, gr = 1.6, integ = -9.6;
   const rnd = () => Math.random() - 0.5;
   const push = (a, v) => { a.copyWithin(0, 1); a[N - 1] = v; };
-  const stEl = $('#stVal'), tpEl = $('#tpVal'), grEl = $('#grVal'), grFill = $('#grFill'), stFill = $('#stFill');
+  const intEl = $('#intVal'), stEl = $('#stVal'), tpEl = $('#tpVal'), grEl = $('#grVal'), grFill = $('#grFill'), stFill = $('#stFill');
   function step() {
     // Cada traço é um AR(1) próprio, com passo pequeno por quadro (sem ruído direto no valor desenhado)
-    st = clamp(st + (-9.5 - st) * 0.06 + rnd() * 0.2, -11.2, -7.8);
+    st = clamp(st + (-9.0 - st) * 0.06 + rnd() * 0.2, -11.2, -7.8);
+    // Integrado: passeio muito lento em volta de -9,6 (passo <= 0,02 por quadro)
+    integ = clamp(integ + (-9.6 - integ) * 0.05 + rnd() * 0.02, -9.8, -9.4);
     mo = clamp(mo + (st + 0.2 - mo) * 0.1 + rnd() * 0.2, -12, -6);
     inp = clamp(inp + (st - 3.8 - inp) * 0.1 + rnd() * 0.08, -18, -6);
     tp = clamp(tp + rnd() * 0.08 + (-1.2 - tp) * 0.1, -1.5, -1.1);
     gr = clamp(gr + rnd() * 0.5 + (1.6 - gr) * 0.08, 0, 4.5);
     push(hST, st); push(hMO, mo); push(hIN, inp);
-    stEl.textContent = fmt(st); tpEl.textContent = fmt(tp);
+    intEl.textContent = fmt(integ); stEl.textContent = fmt(st); tpEl.textContent = fmt(tp);
     grEl.textContent = fmt(-gr) + ' dB'; grFill.style.width = (gr / 6 * 100) + '%';
     stFill.style.width = clamp((st + 24) / 24 * 100, 0, 100) + '%';
   }
@@ -442,11 +449,11 @@
   }
   function draw() {
     g.clearRect(0, 0, W, H);
-    // Faixa do alvo: −9,5 ± 1 LU
+    // Faixa do alvo: alvo do gênero ± 1 LU
     g.fillStyle = rgba(ACC, 0.12);
-    g.fillRect(PL, yOf(-8.5), PR - PL, yOf(-10.5) - yOf(-8.5));
+    g.fillRect(PL, yOf(tgt + 1), PR - PL, yOf(tgt - 1) - yOf(tgt + 1));
     g.fillStyle = DIM; g.font = '10px ' + css('--mono');
-    g.fillText('ALVO −9,5 ±1 LU', PL + 6, yOf(-8.5) - 4);
+    g.fillText(`ALVO ${fmt(tgt)} ±1 LU`, PL + 6, yOf(tgt + 1) - 4);
     // Grade e escala
     g.strokeStyle = LINE; g.lineWidth = 1;
     for (const d of [-6, -12, -18, -24]) {
@@ -475,7 +482,7 @@
   }
 
   window.addEventListener('resize', size);
-  size(); drawKnob(); updPreset();
+  size(); drawKnob(); updPreset(); setTarget(6);
   requestAnimationFrame(loop);
 })();
 </script>

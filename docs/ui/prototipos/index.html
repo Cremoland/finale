@@ -16,9 +16,6 @@
     --muted: #9a978f;
     --accent: #d9a441;
   }
-  @media (prefers-color-scheme: light) {
-    :root:not([data-theme="dark"]) { --bg: #141414; }
-  }
   * { box-sizing: border-box; }
   html, body { margin: 0; padding: 0; }
   body {
@@ -69,7 +66,7 @@
     width: 900px;
     height: 600px;
     border: 0;
-    transform: scale(0.6);
+    transform: scale(var(--s, 0.6)); /* definido por script abaixo, de acordo com a largura do quadro */
     transform-origin: 0 0;
   }
   .link {
@@ -87,7 +84,6 @@
     body { padding: 24px 16px 40px; }
     .card { padding: 14px; }
     .frame { width: 100%; height: auto; aspect-ratio: 900 / 600; }
-    .frame iframe { transform: none; }
   }
 </style>
 </head>
@@ -133,5 +129,11 @@
       <a class="link" href="v5-latao.html">abrir em tamanho real ↗</a>
     </article>
   </main>
+<script>
+  // Escala cada prévia (iframe de 900 px) para caber na largura do quadro
+  const fitFrames = () => document.querySelectorAll('.frame').forEach((f) => f.style.setProperty('--s', (f.clientWidth / 900).toFixed(4)));
+  window.addEventListener('resize', fitFrames);
+  fitFrames();
+</script>
 </body>
 </html>

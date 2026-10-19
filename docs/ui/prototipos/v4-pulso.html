@@ -71,6 +71,10 @@ body {
 .step:focus-visible { outline: 2px solid var(--accent-2); outline-offset: 6px; border-radius: 4px; }
 .node { position: relative; width: 16px; height: 16px; border-radius: 50%; border: 2px solid var(--bar); background: var(--bg); }
 .step.done .node { border-color: var(--accent); }
+.step.done .node::before {
+  content: "✓"; position: absolute; inset: 0; display: flex; align-items: center; justify-content: center;
+  font: 700 10px/1 var(--font-ui); color: var(--accent);
+}
 .step[aria-checked="true"] { color: var(--text); font-weight: 700; }
 .step[aria-checked="true"] .node { background: var(--accent); border-color: var(--accent); box-shadow: 0 0 0 4px rgba(255, 90, 31, .18); }
 .step.pulse .node::after {
@@ -351,7 +355,7 @@ button:focus-visible { outline: 2px solid var(--accent-2); outline-offset: 2px; 
         <div class="st" id="stBar"></div>
         <div class="int" id="intMark"></div>
       </div>
-      <div class="sub"><span id="stTxt">curto prazo −10,1 LUFS</span></div>
+      <div class="sub"><span id="stTxt">curto prazo −9,0 LUFS</span></div>
     </div>
 
     <div class="tp">
@@ -364,7 +368,7 @@ button:focus-visible { outline: 2px solid var(--accent-2); outline-offset: 2px; 
         <div class="st" id="tpBar"></div>
         <div class="ceil" style="left: 83.33%"></div>
       </div>
-      <div class="sub"><span id="grTxt">GR −2,3 dB</span><span>teto −1,0 · <span class="ok">OK</span></span></div>
+      <div class="sub"><span id="grTxt">GR −1,6 dB</span><span>teto −1,0 · <span class="ok">OK</span></span></div>
     </div>
 
     <div class="ctl">
@@ -403,7 +407,7 @@ button:focus-visible { outline: 2px solid var(--accent-2); outline-offset: 2px; 
   const ORDER = ['off', 'analisar', 'auto', 'congelar'];
   const NEUTRAL = [0.5, 0, 0, -0.5]; // forma neutra por banda (dB)
   const S = { amount: 62, genre: 6, char: 0, assist: 'auto', ab: 'A', adv: false, sec: 42 };
-  const BASE = { integ: -9.6, st: -10.1, tp: -1.2, gr: -2.3, bands: [-1.3, 0.6, -0.4, -2.6] };
+  const BASE = { integ: -9.6, st: -9.0, tp: -1.2, gr: -1.6, bands: [-1.3, 0.6, -0.4, -2.6] };
   const M = { integ: BASE.integ, st: BASE.st, tp: BASE.tp, gr: BASE.gr, bands: BASE.bands.slice() };
 
   const lufsX = v => (v + 14) / 8 * 100;   // escala -14..-6 LUFS

@@ -192,14 +192,14 @@ button:focus-visible,[tabindex]:focus-visible{outline:2px solid var(--accent-2);
   <section class="col col-l">
     <span class="cap">Loudness</span>
     <svg id="dial" class="dial" width="224" height="120" viewBox="0 0 224 120" aria-label="Short-term em VU"></svg>
-    <div class="bar-row"><span class="cap">Short-term</span><span class="val" id="stVal">−10,8 LUFS</span></div>
+    <div class="bar-row"><span class="cap">Short-term</span><span class="val" id="stVal">−9,0 LUFS</span></div>
     <div class="bar" aria-hidden="true"><div class="fill" id="stFill"></div><div class="band" id="tgtBand"></div><div class="target" id="tgtLine"></div></div>
     <div class="visor">
-      <div class="vrow"><span class="k">Integrado</span><span class="v">−9,6 LUFS</span></div>
+      <div class="vrow"><span class="k">Integrado</span><span class="v" id="intVal">−9,6 LUFS</span></div>
       <div class="vrow"><span class="k" id="tgtLbl">Alvo · Pop</span><span class="v" id="tgtVal">−9,5 LUFS</span></div>
       <div class="vrow"><span class="k">True peak</span><span class="v" id="tpVal">−1,2 dBTP</span></div>
       <div class="vrow"><span class="k">Teto</span><span class="v">−1,0 dBTP</span></div>
-      <div class="vrow"><span class="k">Redução limiter</span><span class="v" id="grVal">−0,4 dB</span></div>
+      <div class="vrow"><span class="k">Redução limiter</span><span class="v" id="grVal">−1,6 dB</span></div>
     </div>
   </section>
 
@@ -430,11 +430,12 @@ button:focus-visible,[tabindex]:focus-visible{outline:2px solid var(--accent-2);
   el('circle', { cx: 112, cy: 108, r: 6, fill: 'url(#gBrass)' }, dial);
 
   // Medidores: passeio aleatório suave, ~30 fps
-  const m = { st: -10.8, tp: -1.2, gr: 0.4 };
+  const m = { int: -9.6, st: -9.0, tp: -1.2, gr: 1.6 };
   const walk = (x, mean, spread, lo, hi) => clamp(x + (mean - x) * 0.08 + (Math.random() - 0.5) * spread, lo, hi);
   const renderMeters = () => {
     $('#needle').setAttribute('transform', `rotate(${dv(m.st).toFixed(1)} 112 108)`);
     $('#stFill').style.width = ((m.st + 20) / 20 * 100).toFixed(1) + '%';
+    $('#intVal').textContent = num(m.int, 1) + ' LUFS';
     $('#stVal').textContent = num(m.st, 1) + ' LUFS';
     $('#tpVal').textContent = num(m.tp, 1) + ' dBTP';
     $('#grVal').textContent = num(-m.gr, 1) + ' dB';
@@ -443,9 +444,11 @@ button:focus-visible,[tabindex]:focus-visible{outline:2px solid var(--accent-2);
   const loop = (t) => {
     if (t - last >= 33) {
       last = t;
-      m.st = walk(m.st, -10.8, 0.2, -14.5, -7.5);
+      // Integrado: passeio muito lento em volta de -9,6 (passo <= 0,02 por quadro)
+      m.int = clamp(m.int + (-9.6 - m.int) * 0.05 + (Math.random() - 0.5) * 0.02, -9.8, -9.4);
+      m.st = walk(m.st, -9.0, 0.2, -14.5, -7.5);
       m.tp = walk(m.tp, -1.2, 0.05, -1.6, -1.0);
-      m.gr = walk(m.gr, 0.4, 0.05, 0, 1.5);
+      m.gr = walk(m.gr, 1.6, 0.05, 1.0, 2.2);
       renderMeters();
     }
     requestAnimationFrame(loop);

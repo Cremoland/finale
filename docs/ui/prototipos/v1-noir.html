@@ -325,8 +325,6 @@ button { font-family: var(--sans); }
   position: absolute;
   left: -4px;
   width: 30px;
-  top: 35.42%;
-  height: 8.33%;
   background: rgba(230, 234, 240, 0.12);
   border-radius: 2px;
 }
@@ -334,7 +332,6 @@ button { font-family: var(--sans); }
   position: absolute;
   left: -4px;
   width: 30px;
-  top: calc(39.58% - 1px);
   height: 2px;
   background: var(--text);
   border-radius: 1px;
@@ -342,7 +339,6 @@ button { font-family: var(--sans); }
 .tlabel {
   position: absolute;
   left: 36px;
-  top: 39.58%;
   transform: translateY(-50%);
   font-family: var(--mono);
   font-size: 11px;
@@ -555,11 +551,11 @@ button { font-family: var(--sans); }
       <div class="m-head"><span class="m-title">Short-term</span><span class="mono" id="shortVal">−9,0</span></div>
       <div class="m-st">
         <div class="track"><div class="fill" id="shortFill"></div></div>
-        <div class="band"></div>
-        <div class="tline"></div>
+        <div class="band" id="tband"></div>
+        <div class="tline" id="tline"></div>
         <span class="scale s0">0</span>
         <span class="scale s1">−24</span>
-        <div class="tlabel">alvo −9,5 · Pop</div>
+        <div class="tlabel" id="tlabel">alvo −9,5 · Pop</div>
       </div>
       <div class="m-block">
         <span class="m-title">Integrado</span>
@@ -666,6 +662,21 @@ button { font-family: var(--sans); }
   });
   render();
 
+  // Gênero: alvo de LUFS. Mesma escala do medidor de short-term (-24..0 LUFS, de cima para baixo)
+  const GENRES = [['Trap', -9], ['Rap/Boom bap', -9], ['Lo-fi', -9], ['Funk BR', -9], ['House', -9], ['EDM', -8.5], ['Pop', -9.5], ['Rock', -9]];
+  const yOfLufs = (v) => (1 - (v + 24) / 24) * 100;
+  const tlabel = $('#tlabel'), tline = $('#tline'), tband = $('#tband');
+  const renderGenre = (i) => {
+    const [name, t] = GENRES[i];
+    const y = yOfLufs(t).toFixed(2);
+    tlabel.textContent = `alvo ${fmt(t)} · ${name}`;
+    tlabel.style.top = y + '%';
+    tline.style.top = `calc(${y}% - 1px)`;
+    tband.style.top = yOfLufs(t + 1).toFixed(2) + '%'; // faixa de ±1 LU
+    tband.style.height = (yOfLufs(t - 1) - yOfLufs(t + 1)).toFixed(2) + '%';
+  };
+  renderGenre(Math.max(0, $$('.chips[aria-label="Gênero"] .chip').findIndex((c) => c.getAttribute('aria-pressed') === 'true')));
+
   // Seletores: gênero, caráter, assistente e A/B
   const ASSIST = {
     off: 'Desligado · ajuste manual',
@@ -678,6 +689,7 @@ button { font-family: var(--sans); }
     if (!b || !group.contains(b)) return;
     $$('button', group).forEach((x) => x.setAttribute('aria-pressed', String(x === b)));
     if (group.id === 'assistSeg') $('#assistStatus').textContent = ASSIST[b.dataset.v];
+    if (group.getAttribute('aria-label') === 'Gênero') renderGenre([...group.children].indexOf(b));
   }));
 
   // Painel Avançado
